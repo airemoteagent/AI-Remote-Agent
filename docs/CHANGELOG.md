@@ -7,13 +7,6 @@
   out of the box. Everything still runs through the same argv-based
   sandbox: realpath resolution, scrubbed env, per-segment allowlist.
 
-## v2.8.1
-
-- **macOS app launcher**: `open` added to the default shell allowlist —
-  the agent can now launch apps, files and URLs (e.g. `open -a Calendar`)
-  out of the box. Everything still runs through the same argv-based
-  sandbox: realpath resolution, scrubbed env, per-segment allowlist.
-
 ## v2.8.0 — hardened core (security pass)
 
 - **Shell: argv execution, no string-to-shell.** Commands are parsed into
@@ -55,7 +48,7 @@
   adversarial cases (command injection, allowlist bypass, pipe-to-shell,
   path traversal, symlink escape, SSRF incl. DNS-rebinding simulation and
   redirect-to-metadata, FIFO refusal, audit-chain tampering, rate limits).
-  Full suite: 162 tests green.
+  Full suite: 451 tests green.
 
 ## v2.7.0
 

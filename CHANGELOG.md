@@ -1,5 +1,44 @@
 # Changelog
 
+All notable changes to remote-agent are documented here. The format is
+based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [4.0.0] - 2026-08-25 — Enterprise Compliance & Intelligence
+
+Compliance-foundation release: IEC 62443-4-1/-4-2 and EU Cyber Resilience Act
+(CRA) documentation, security-requirements traceability, and a vulnerability
+management process — plus version and metadata-consistency fixes.
+
+### Added
+- **IEC 62443-4-1 SDLC traceability** (docs/IEC-62443-4-1.md) — the 13 secure
+  development lifecycle process requirements (SM-1…SM-13) mapped to the repo's
+  real process and evidence.
+- **IEC 62443-4-2 component requirements** (docs/IEC-62443-4-2.md) — the 7
+  foundational requirements (FR 1–7) with component-level traceability and
+  security-level rationale.
+- **EU Cyber Resilience Act compliance** (docs/CRA-COMPLIANCE.md) — Annex I
+  Part I/II, Annex II and manufacturer obligations (Art. 13/14) mapped to
+  implemented controls and processes.
+- **Security requirements traceability matrix** (docs/SECURITY-REQUIREMENTS-TRACEABILITY.md).
+- **Vulnerability management & coordinated disclosure process** (docs/VULNERABILITY-MANAGEMENT.md).
+- **Compliance matrix & roadmap** (docs/COMPLIANCE-MATRIX.md, docs/COMPLIANCE-ROADMAP.md).
+- **Machine-readable operations output** — `remote-agent doctor --json` and
+  `remote-agent policy explain <tool> … --json` emit JSON for CI/SIEM/automation.
+
+### Fixed
+- `remote-agent policy explain` for shell commands now reflects the same base
+  safety / policy deny / approval patterns as runtime execution (a dry-run no
+  longer reports `allow` for `rm -rf /`, `mkfs`, etc.).
+
+### Changed
+- Version 3.0.0 → 4.0.0 (root, desktop, package-lock, CITATION.cff, SBOM).
+- Fixed metadata drift: CITATION.cff and sbom.cyclonedx.json now report 4.0.0.
+- CHANGELOG restructured to a single Keep-a-Changelog order.
+
+### Verification
+- Full test suite: **451 passed, 0 failed**.
+
 ## [3.0.0] - 2026-08-25 — Remote Agent Online (rebrand + brain upgrades)
 
 Rebranded from mona-agent to **remote-agent** as its own product, streaming to remoteagent.online.
@@ -16,13 +55,8 @@ Rebranded from mona-agent to **remote-agent** as its own product, streaming to r
 - Server-side prompt-prefix caching + provider-aware cache-token accounting.
 
 
-All notable changes to remote-agent are documented here. The format is
-based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/).
+### Added (security hardening)
 
-## Unreleased — security hardening
-
-### Added
 - Ed25519 device identities with signed enrollment, tenant binding, public-key fingerprints, credential lifecycle metadata, rotation, revocation, and timing-safe verification.
 - Durable tenant-scoped policy registry with immutable monotonic revisions, activation/rollback, atomic persistence, and audit-chain records.
 - Tenant-aware fleet/JIT administration and policy operations through `FleetController` and `AdminApi`.
@@ -31,85 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Security review scope, release distribution checklist, and public security-review intake artifacts.
 
 ### Verification
-- Full test suite: **437 passed, 0 failed**.
+- Full test suite: **451 passed, 0 failed**.
 - This release does not claim an independent security audit, hardware-backed key storage, complete SSO/SCIM integration, or external community validation.
 
-## [2.11.0] — 2026-08-17
+### Added (agent orchestration & tooling)
 
-### Added
-- **`remote-agent doctor`** (`apps/desktop/src/doctor.js`): one-shot local
-  diagnostics — node version, ~/.remote-agent state, credentials, policy
-  parse, audit-chain verify, workspace, BYO provider, control-plane
-  reachability, installed version, update availability. Non-zero exit on
-  any failed check.
-- **Localhost health + metrics** (`apps/desktop/src/metrics.js`):
-  `REMOTE_METRICS_PORT` starts `/healthz` and Prometheus-text `/metrics`
-  bound to 127.0.0.1 only — systemd/Docker healthchecks and local
-  scrapers; the daemon stays egress-only.
-- **HTTP MCP transport**: `remote-agent mcp --http [--port N]` — POST /mcp
-  JSON-RPC + GET info/healthz, localhost-bound.
-- **Optional OTel spans** (`apps/desktop/src/otel.js`): `task.run` and
-  `tool.*` spans when `@opentelemetry/api` is installed; complete no-op
-  otherwise (no new dependencies).
-- **Hardened systemd unit** (via `remote-agent daemon install`):
-  NoNewPrivileges, PrivateTmp, ProtectSystem=strict,
-  ProtectHome=read-only + ReadWritePaths=%h/.remote-agent, MemoryMax=1G.
-- **Installer hardening** (`apps/desktop/install.sh`): `--version <tag>`
-  pins a release, SHA-256 verification against the release SHA256SUMS
-  asset (`REMOTE_REQUIRE_CHECKSUM=1` hard-fails), extracted-version check,
-  `--dry-run`, refuses root unless `--allow-root`.
-- **Docker**: non-root multi-stage `Dockerfile` (HEALTHCHECK on
-  /healthz) + `docker-compose.yml` (read-only rootfs, tmpfs, persistent
-  state volume, host-loopback metrics port).
-- **`.github/workflows/release.yml`**: on tag push, packs the source
-  tarball, computes SHA256SUMS and attaches both to the GitHub release.
-- Tests: metrics (4), doctor (5), otel (2), mcp-http (1) — suite 339
-  green.
-
-## [2.10.1] — 2026-08-17
-
-### Added
-- **BYO local brain transport** (`apps/desktop/src/transport/local.js`):
-  run the reasoning loop on-device against a user-supplied LLM —
-  `anthropic` (Messages API), `openai` (any OpenAI-compatible
-  `/chat/completions` endpoint: OpenAI, OpenRouter, Groq, LM Studio,
-  vLLM), and `ollama` (fully offline, $0). Streaming with usage mapping
-  to the engine's `{input, output, total, costUsd}` shape; per-model
-  price tables (overridable per provider) feed the budget governor, so
-  BYO runs get the same cost governance as vault runs. Config in
-  `~/.remote-agent/provider.json` (0600) with env fallbacks; the cloud can
-  never read it.
-- **`remote-agent provider` CLI**: `set <anthropic|openai|ollama>
-  [--key|--url|--model]`, `status` (masked key, model, pricing),
-  `unset`, `test` (one-shot smoke call).
-- **`REMOTE_TRANSPORT=local`** — fail-fast local-only brain mode; the
-  daemon refuses to start when no provider is configured.
-- **Daemon brain dispatch** (`agent.js#brainThink`): every think — main
-  loop, forced conclusion, verification pass, delegate sub-agents and
-  workflow sub-agents — routes through the BYO provider when configured;
-  prompts never leave the device. `usageTotals` now carry `costUsd`
-  through to the run trace and audit log.
-- **MCP transport** (`apps/desktop/src/transport/mcp.js` + `remote-agent
-  mcp`): Model Context Protocol stdio server (JSON-RPC 2.0) exposing the
-  tool registry to any MCP client — `initialize`, `tools/list`
-  (freeform args → JSON Schema), `tools/call`, `ping`. Every call passes
-  the same local policy gate as cloud tasks.
-- **Examples**: `scripts/disk-watchdog.sh` (cron recipe — alerts before
-  a volume fills), `scripts/morning-briefing.sh` (8am briefing),
-  `examples/providers/` (BYO templates: anthropic, openai-compatible,
-  ollama).
-- **`docs/PRICING.md`** — SaaS pricing & metering spec for the control
-  plane (tiers, metering events, Stripe mapping, BYO economics).
-- Tests: `local-provider.test.mjs` (14) + `mcp.test.mjs` (9) — full
-  suite 327 green.
-
-### Changed
-- README/docs updated: BYO on-device brain and MCP are shipped, not
-  roadmap; offline FAQ now documents the Ollama path.
-
-## [Unreleased]
-
-### Added
 - **Vector indexing (dependency-free, local).** New engine module
   `packages/engine/src/vector.js`: a deterministic hashing-trick embedding
   (256-dim signed feature vectors, djb2 + fnv1a), cosine similarity scoring,
@@ -186,7 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   exact rule needed. The daemon advertises loaded plugins to the cloud on
   connect.
 
-### Changed
+### Changed (orchestration)
 - `MemoryStore` recall is vector-based while keeping the same on-disk format
   and public API — existing memory files work untouched.
 - Tools list now advertises `vector` to the cloud brain.
@@ -195,6 +155,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   gate — a scripted brain starts and waits on a background job, queries
   plugins, then answers, proving the whole smartness chain works as the
   daemon uses it.
+
+## [2.11.0] — 2026-08-17
+
+### Added
+- **`remote-agent doctor`** (`apps/desktop/src/doctor.js`): one-shot local
+  diagnostics — node version, ~/.remote-agent state, credentials, policy
+  parse, audit-chain verify, workspace, BYO provider, control-plane
+  reachability, installed version, update availability. Non-zero exit on
+  any failed check.
+- **Localhost health + metrics** (`apps/desktop/src/metrics.js`):
+  `REMOTE_METRICS_PORT` starts `/healthz` and Prometheus-text `/metrics`
+  bound to 127.0.0.1 only — systemd/Docker healthchecks and local
+  scrapers; the daemon stays egress-only.
+- **HTTP MCP transport**: `remote-agent mcp --http [--port N]` — POST /mcp
+  JSON-RPC + GET info/healthz, localhost-bound.
+- **Optional OTel spans** (`apps/desktop/src/otel.js`): `task.run` and
+  `tool.*` spans when `@opentelemetry/api` is installed; complete no-op
+  otherwise (no new dependencies).
+- **Hardened systemd unit** (via `remote-agent daemon install`):
+  NoNewPrivileges, PrivateTmp, ProtectSystem=strict,
+  ProtectHome=read-only + ReadWritePaths=%h/.remote-agent, MemoryMax=1G.
+- **Installer hardening** (`apps/desktop/install.sh`): `--version <tag>`
+  pins a release, SHA-256 verification against the release SHA256SUMS
+  asset (`REMOTE_REQUIRE_CHECKSUM=1` hard-fails), extracted-version check,
+  `--dry-run`, refuses root unless `--allow-root`.
+- **Docker**: non-root multi-stage `Dockerfile` (HEALTHCHECK on
+  /healthz) + `docker-compose.yml` (read-only rootfs, tmpfs, persistent
+  state volume, host-loopback metrics port).
+- **`.github/workflows/release.yml`**: on tag push, packs the source
+  tarball, computes SHA256SUMS and attaches both to the GitHub release.
+- Tests: metrics (4), doctor (5), otel (2), mcp-http (1) — suite 339
+  green.
+
+## [2.10.1] — 2026-08-17
+
+### Added
+- **BYO local brain transport** (`apps/desktop/src/transport/local.js`):
+  run the reasoning loop on-device against a user-supplied LLM —
+  `anthropic` (Messages API), `openai` (any OpenAI-compatible
+  `/chat/completions` endpoint: OpenAI, OpenRouter, Groq, LM Studio,
+  vLLM), and `ollama` (fully offline, $0). Streaming with usage mapping
+  to the engine's `{input, output, total, costUsd}` shape; per-model
+  price tables (overridable per provider) feed the budget governor, so
+  BYO runs get the same cost governance as vault runs. Config in
+  `~/.remote-agent/provider.json` (0600) with env fallbacks; the cloud can
+  never read it.
+- **`remote-agent provider` CLI**: `set <anthropic|openai|ollama>
+  [--key|--url|--model]`, `status` (masked key, model, pricing),
+  `unset`, `test` (one-shot smoke call).
+- **`REMOTE_TRANSPORT=local`** — fail-fast local-only brain mode; the
+  daemon refuses to start when no provider is configured.
+- **Daemon brain dispatch** (`agent.js#brainThink`): every think — main
+  loop, forced conclusion, verification pass, delegate sub-agents and
+  workflow sub-agents — routes through the BYO provider when configured;
+  prompts never leave the device. `usageTotals` now carry `costUsd`
+  through to the run trace and audit log.
+- **MCP transport** (`apps/desktop/src/transport/mcp.js` + `remote-agent
+  mcp`): Model Context Protocol stdio server (JSON-RPC 2.0) exposing the
+  tool registry to any MCP client — `initialize`, `tools/list`
+  (freeform args → JSON Schema), `tools/call`, `ping`. Every call passes
+  the same local policy gate as cloud tasks.
+- **Examples**: `scripts/disk-watchdog.sh` (cron recipe — alerts before
+  a volume fills), `scripts/morning-briefing.sh` (8am briefing),
+  `examples/providers/` (BYO templates: anthropic, openai-compatible,
+  ollama).
+- **`docs/PRICING.md`** — SaaS pricing & metering spec for the control
+  plane (tiers, metering events, Stripe mapping, BYO economics).
+- Tests: `local-provider.test.mjs` (14) + `mcp.test.mjs` (9) — full
+  suite 327 green.
+
+### Changed
+- README/docs updated: BYO on-device brain and MCP are shipped, not
+  roadmap; offline FAQ now documents the Ollama path.
+
 
 ## [2.8.3] — 2026-08-16
 
