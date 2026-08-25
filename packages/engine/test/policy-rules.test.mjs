@@ -147,6 +147,14 @@ describe('explain()', () => {
     assert.equal(e.tier, 'confirm');
     assert.match(e.decision, /requires approval/);
   });
+
+  test('legacy explain reflects shell base safety rules', () => {
+    const legacy = new Policy({ version: 1, tools: { shell: 'allow' }, audit: false });
+    assert.equal(legacy.explain('shell', { cmd: 'df -h' }).tier, 'allow');
+    const e = legacy.explain('shell', { cmd: 'rm -rf /' });
+    assert.equal(e.tier, 'deny');
+    assert.match(e.decision, /base safety rules/);
+  });
 });
 
 describe('when-condition combinators', () => {

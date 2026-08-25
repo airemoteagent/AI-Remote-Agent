@@ -521,6 +521,12 @@ export class Policy {
     if (this.toolRules[name]) matched = `tools.${name} = "${tier}"`;
     else if (KNOWN_TOOLS.has(name)) matched = 'default (known tool)';
     else matched = 'default (unknown tool)';
+    if (name === 'shell' && typeof args.cmd === 'string') {
+      const sh = this.#explainShellVerdict(args.cmd);
+      if (sh && tier === 'allow') {
+        return { tool: name, decision: sh.decision, tier: sh.tier, rateLimited: false, matchedRule: sh.matched, policyPath: DEFAULT_POLICY_PATH };
+      }
+    }
     const rateOk = this.rateLimiter.allow(name);
     const parts = [];
     if (tier === 'deny') parts.push(`denied by ${matched}`);
@@ -535,6 +541,21 @@ export class Policy {
       matchedRule: matched,
       policyPath: DEFAULT_POLICY_PATH,
     };
+  }
+
+  /** Pure (no audit, no rate-limit) shell-command verdict for dry-run explain. */
+  #explainShellVerdict(cmd) {
+    const c = String(cmd);
+    for (const pat of BASE_DENY) {
+      if (pat.test(c)) return { tier: 'deny', matched: 'shell base safety rules', decision: 'Blocked by base safety rules' };
+    }
+    for (const pat of this.shellDeny) {
+      try { if (new RegExp(pat, 'i').test(c)) return { tier: 'deny', matched: 'shell policy deny', decision: 'Blocked by policy' }; } catch { /* invalid pattern ignored */ }
+    }
+    for (const pat of this.approvalPatterns) {
+      try { if (new RegExp(pat, 'i').test(c)) return { tier: 'confirm', matched: 'shell approval pattern', decision: 'Requires approval by policy' }; } catch { /* invalid pattern ignored */ }
+    }
+    return null;
   }
 
   #audited(kind, tier, reason) {
