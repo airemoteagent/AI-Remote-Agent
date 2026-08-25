@@ -1,20 +1,20 @@
 # Security Self-Audit Guide
 
-A practical checklist for teams adopting mona-agent. Each item states what to
+A practical checklist for teams adopting remote-agent. Each item states what to
 verify and where the evidence lives.
 
 ## 1. Device provisioning
 
-- [ ] Device token generated from the dashboard (Settings → Mona key), never
+- [ ] Device token generated from the dashboard (Settings → Remote key), never
       hardcoded, never committed to version control.
-- [ ] `mona-agent login` performed on the device; credentials file readable
+- [ ] `remote-agent login` performed on the device; credentials file readable
       only by the owning user (`chmod 600`).
 - [ ] Device inventory matches reality: one token per device, labels in use.
 
 ## 2. Network posture
 
 - [ ] No inbound ports required or opened for the daemon.
-- [ ] Egress limited to `https://agent.mona.expert` (and the LLM providers,
+- [ ] Egress limited to `https://remoteagent.online` (and the LLM providers,
       which the *cloud* calls — the device never talks to providers).
 - [ ] Corporate proxy/MITM inspection excluded for the cloud endpoint
       (certificate verification is enforced).
@@ -28,12 +28,12 @@ verify and where the evidence lives.
 
 ## 4. Tool policy
 
-- [ ] Policy file exists and is reviewed: `mona-agent policy status`
-      (or `cat ~/.mona-agent/policy.json`).
+- [ ] Policy file exists and is reviewed: `remote-agent policy status`
+      (or `cat ~/.remote-agent/policy.json`).
 - [ ] A preset is applied deliberately — `strict` for unattended
       machines, `standard` for human-supervised, `permissive` never for
       high-stakes devices.
-- [ ] Shell allowlist reviewed (`MONA_ALLOW_CMDS`); blocked patterns and
+- [ ] Shell allowlist reviewed (`REMOTE_ALLOW_CMDS`); blocked patterns and
       the argv execution model understood (no command string ever reaches
       a shell; every segment is allowlisted).
 - [ ] For high-stakes devices: tools reduced to the minimum set; irreversible
@@ -44,8 +44,8 @@ verify and where the evidence lives.
 ## 5. Monitoring & incident response
 
 - [ ] Live log reviewed (Logs tab) or exported for SIEM ingestion.
-- [ ] Local audit chain verified regularly: `mona-agent audit verify`
-      (fails on any tampering) and `mona-agent audit tail` for recent
+- [ ] Local audit chain verified regularly: `remote-agent audit verify`
+      (fails on any tampering) and `remote-agent audit tail` for recent
       decisions.
 - [ ] Retention period defined for audit data (cloud + device).
 - [ ] Incident reconstruction drill: open a run trace and confirm the full
@@ -64,7 +64,7 @@ verify and where the evidence lives.
 | Control | Evidence |
 |---|---|
 | Authentication | Settings → Devices: token list with last-used |
-| Authorization | Rate-limit events in the live log; plan limits in Settings → Plan; local policy denials in `mona-agent audit tail` |
-| Integrity | Git tags; test suite in CI (unit + security); dependency list (see `SBOM.md`); `mona-agent audit verify` |
+| Authorization | Rate-limit events in the live log; plan limits in Settings → Plan; local policy denials in `remote-agent audit tail` |
+| Integrity | Git tags; test suite in CI (unit + security); dependency list (see `SBOM.md`); `remote-agent audit verify` |
 | Confidentiality | Key storage is encrypted server-side; devices hold no provider keys; child processes get a scrubbed environment |
 | Auditability | History tab, run traces, JSONL training export, live event stream, hash-chained local audit log |

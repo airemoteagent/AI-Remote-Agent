@@ -3,7 +3,7 @@ import { homedir, platform } from 'node:os';
 import { spawnFileSync } from './platform-process.js';
 import { join } from 'node:path';
 
-const SERVICE = 'mona-agent';
+const SERVICE = 'remote-agent';
 
 function validate(value) {
   if (!value || typeof value !== 'object' || typeof value.apiKey !== 'string' || !value.apiKey.trim()) {
@@ -25,7 +25,7 @@ export function memoryBackend() {
 
 /**
  * DPAPI scope selection. Interactive CLI runs use CurrentUser. The Windows
- * service context (MONA_SERVICE=windows-scm, LocalSystem/LocalService/
+ * service context (REMOTE_SERVICE=windows-scm, LocalSystem/LocalService/
  * NetworkService) must use LocalMachine, otherwise credentials saved by the
  * interactive user can never be decrypted by the service and vice versa.
  */
@@ -57,7 +57,7 @@ export function dpapiUnprotectScript(scope) {
 }
 
 export function windowsDpapiBackend({ account = 'default', command = 'powershell.exe', runner = spawnFileSync, scope } = {}) {
-  const resolveScope = () => dpapiScope({ scope, service: Boolean(process.env.MONA_SERVICE) });
+  const resolveScope = () => dpapiScope({ scope, service: Boolean(process.env.REMOTE_SERVICE) });
   const protect = (s) => dpapiProtectScript(s);
   const unprotect = (s) => dpapiUnprotectScript(s);
   let stored = null;
@@ -112,7 +112,7 @@ export function createCredentialStore({
   allowFileFallback = true,
   now = () => new Date().toISOString(),
 } = {}) {
-  const dir = join(homeDir, '.mona-agent');
+  const dir = join(homeDir, '.remote-agent');
   const legacy = join(dir, 'credentials.json');
   const metadataFile = join(dir, 'credentials.meta.json');
   const selected = backend || (os === 'win32' ? windowsDpapiBackend() : (allowFileFallback ? fileBackend(legacy) : null));

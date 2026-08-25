@@ -5,7 +5,7 @@ import { verifyChecksum } from '../src/update.js';
 
 const bytes = Buffer.from('release artifact');
 const digest = createHash('sha256').update(bytes).digest('hex');
-const filename = 'mona-agent-v2.11.0.tar.gz';
+const filename = 'remote-agent-v2.11.0.tar.gz';
 
 test('release checksum parser accepts one exact LF or CRLF entry', () => {
   assert.equal(verifyChecksum(bytes, `${'0'.repeat(64)}  other.tar.gz\n${digest}  ${filename}\n`, filename).ok, true);

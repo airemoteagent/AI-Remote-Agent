@@ -1,7 +1,7 @@
 # Threat Model (STRIDE)
 
-Scope: the mona-agent client (device daemon) and its communication with the
-mona.expert cloud. The LLM providers (OpenAI, Anthropic, Google, DeepSeek,
+Scope: the remote-agent client (device daemon) and its communication with the
+remoteagent.online cloud. The LLM providers (OpenAI, Anthropic, Google, DeepSeek,
 OpenRouter) are third parties; their trust assumptions are stated explicitly.
 
 ## Assets
@@ -24,7 +24,7 @@ OpenRouter) are third parties; their trust assumptions are stated explicitly.
 | Threat | Example | Mitigation |
 |---|---|---|
 | **Spoofing** | Attacker impersonates the device or the user | Device tokens are CSPRNG-generated and revocable; session auth with CSRF on writes; TLS certificate verification |
-| **Tampering** | Intercept/modify task or results in transit; tamper with the local audit log | TLS 1.2+ everywhere; no plaintext fallback; integrity via Git-tagged releases; the local audit log is **hash-chained and append-only** — any edit breaks the chain and is detected by `mona-agent audit verify` |
+| **Tampering** | Intercept/modify task or results in transit; tamper with the local audit log | TLS 1.2+ everywhere; no plaintext fallback; integrity via Git-tagged releases; the local audit log is **hash-chained and append-only** — any edit breaks the chain and is detected by `remote-agent audit verify` |
 | **Repudiation** | "The agent deleted the file, not me" | Complete audit trail per run: reasoning steps, tool calls with arguments, results, tokens, cost, latency — plus the device-side hash-chained policy-decision log |
 | **Information disclosure** | Key leak from device, logs, or backup; SSRF exfiltrating cloud metadata | Provider keys never sent to devices; AES-256-GCM at rest; secrets excluded from logs and scrubbed from child process environments; **SSRF guard** — DNS resolved by the agent, every address CIDR-checked, cloud metadata endpoints blocked by name and IP, redirects re-validated per hop |
 | **Denial of service** | Flood the cloud or the device | Per-user rate limits; plan-based limits; task expiry; step budgets; bounded tool output; **local per-tool rate limits** the control plane cannot override |
@@ -58,7 +58,7 @@ OpenRouter) are third parties; their trust assumptions are stated explicitly.
 6. A compromised/malicious control plane asks the device to widen its own
    access → rejected: policy is local and authoritative, loaded from disk;
    the cloud can only request within it. Every denial is audited locally.
-7. Audit log tampering → hash chain breaks; `mona-agent audit verify` reports
+7. Audit log tampering → hash chain breaks; `remote-agent audit verify` reports
    the exact entry.
 8. Symlink/FIFO tricks in the workspace → realpath containment, `O_NOFOLLOW`
    descriptor checks and special-file refusal.

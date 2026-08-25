@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const HOME = mkdtempSync(join(tmpdir(), 'mona-version-'));
+const HOME = mkdtempSync(join(tmpdir(), 'remote-agent-version-'));
 process.env.HOME = HOME;
 
 const { VERSION, compareVersions, isUpdateAvailable } = await import('../src/version.js');
@@ -50,7 +50,7 @@ describe('update state record', () => {
 
   beforeEach(() => {
     rmSync(HOME, { recursive: true, force: true });
-    mkdirSync(join(HOME, '.mona-agent'), { recursive: true });
+    mkdirSync(join(HOME, '.remote-agent'), { recursive: true });
   });
 
   test('update check writes a lifecycle record with checkedAt', async () => {

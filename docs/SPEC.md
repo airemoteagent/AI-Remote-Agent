@@ -1,4 +1,4 @@
-# SPEC — mona-agent → Enterprise Agent Framework
+# SPEC — remote-agent → Enterprise Agent Framework
 
 > Status: **proposed roadmap** · Owner: implementing agent · Target: v2.0.0+
 > This document is the build specification. Work packages ship in order,
@@ -11,15 +11,15 @@
 
 Current state as documented:
 
-- `mona-agent` v2.8.x, ESM, Node ≥20, one runtime dep (`ws@^8.18`), MIT
+- `remote-agent` v2.8.x, ESM, Node ≥20, one runtime dep (`ws@^8.18`), MIT
 - Monorepo: `packages/{engine,protocol}`, `apps/desktop` (12+ source files,
-  bin at `apps/desktop/bin/mona-agent.js`)
+  bin at `apps/desktop/bin/remote-agent.js`)
 - Test suites: `apps/desktop/test/*.test.mjs` + `packages/*/test/*.test.mjs`
   (167 cases incl. security red-team suite), no CI visible, tags v2.0.0–v2.8.3
 - Model: "cloud-brained" — control plane holds LLM keys, device is a tool
   executor over WSS + an HTTPS task-polling channel
 - Version lifecycle (v2.8.2+): single source of truth in root
-  `package.json`, `mona-agent version|update [check]`, dashboard Update
+  `package.json`, `remote-agent version|update [check]`, dashboard Update
   button drives `!cmd update` over the task channel
 
 Confirmed defect to fix first: `apps/desktop/package.json` reports 1.8.1
@@ -80,7 +80,7 @@ Three inversions of the current design:
 
 ```
 agent/
-├─ bin/mona-agent.js            thin arg parse → src/cli/
+├─ bin/remote-agent.js            thin arg parse → src/cli/
 ├─ src/
 │  ├─ cli/                      command per file, registry-based
 │  ├─ kernel/
@@ -171,9 +171,9 @@ export function defineTool({
 `ToolContext` (ctx) provides exactly:
 `{ signal, logger, workspace, emit(event), invoke(name, input), secrets.get(key), limits: { memoryMb, wallMs, outputBytes } }`
 
-Registry: discovery from builtin + `node_modules/mona-agent-tool-*`
-(package.json `monaAgent.tools` field) + configured paths. Namespace
-collision = hard startup error. `mona-agent tools list|inspect|validate`.
+Registry: discovery from builtin + `node_modules/remote-agent-tool-*`
+(package.json `remoteAgent.tools` field) + configured paths. Namespace
+collision = hard startup error. `remote-agent tools list|inspect|validate`.
 `registry.toSchemas({dialect})` → OpenAI/Anthropic-compatible schema.
 Migrate all builtins; the existing tests must pass unchanged.
 - **Acceptance:** a tool in `examples/tools/hello/` installed via
@@ -182,7 +182,7 @@ Migrate all builtins; the existing tests must pass unchanged.
 
 ### P3 — Policy engine (the security pivot)
 New `src/policy/`. Deny-by-default, evaluated on every tool invocation
-including tool→tool. Policy file `~/.mona-agent/policy.json`:
+including tool→tool. Policy file `~/.remote-agent/policy.json`:
 
 ```json
 {
@@ -191,9 +191,9 @@ including tool→tool. Policy file `~/.mona-agent/policy.json`:
   "rules": [
     { "tool": "sysinfo.*", "effect": "allow" },
     { "tool": "fs.read", "effect": "allow",
-      "when": { "path": { "within": ["~/.mona-agent/workspace"] } } },
+      "when": { "path": { "within": ["~/.remote-agent/workspace"] } } },
     { "tool": "fs.write", "effect": "prompt",
-      "when": { "path": { "within": ["~/.mona-agent/workspace"] },
+      "when": { "path": { "within": ["~/.remote-agent/workspace"] },
                 "size": { "max": 10485760 } } },
     { "tool": "shell.run", "effect": "prompt",
       "when": { "argv0": { "in": ["git","npm","ls","df"] } } },
@@ -214,7 +214,7 @@ Hard requirements:
 - Effects: `allow`, `deny`, `prompt` (TUI approval; auto-deny headless
   unless `--yes-i-know`).
 - Every decision audited with full request + matching rule + outcome.
-- First-match-wins, ordered, `mona-agent policy explain <tool> <input>`.
+- First-match-wins, ordered, `remote-agent policy explain <tool> <input>`.
 - Presets: `strict` (read-only), `standard` (workspace writes, prompted
   shell), `permissive` (current behavior + startup warning banner).
 - **Acceptance:** `test/security/policy.test.mjs` ≥40 cases: path
@@ -225,7 +225,7 @@ Hard requirements:
 + argv array. Allowlist matches argv[0] only, realpath'd, set membership
 (not substring). Wall-clock timeout, output cap (1 MiB, truncate+flag),
 process-group kill on abort, scrubbed env (`PATH,HOME,LANG`), cwd inside
-workspace. Remove `MONA_SHELL_UNSAFE` env var (policy-file decision only).
+workspace. Remove `REMOTE_SHELL_UNSAFE` env var (policy-file decision only).
 
 **files.js** — realpath + prefix containment with trailing separator
 (symlink-safe), re-check after open (TOCTOU: O_NOFOLLOW + fstat), deny
@@ -260,7 +260,7 @@ gated behind `detail: "full"` + policy allow).
 **cloud.js hardening:** reject non-wss in production (localhost or
 `--insecure` banner allowed); signed commands
 `{nonce, issuedAt, deviceId, payloadHash}` verified against pinned
-control-plane key; replay cache; optional `MONA_CA_PIN`; exponential
+control-plane key; replay cache; optional `REMOTE_CA_PIN`; exponential
 backoff with jitter (cap 60s) + circuit breaker; heartbeat ping/pong +
 app-level liveness; bounded inbound queue (drop-with-audit under
 pressure); idempotent commands (`commandId`, re-delivery returns cached
@@ -277,29 +277,29 @@ and consume external MCP servers as tools.
   adapters, selected by config.
 
 ### P6 — Durability, observability, operations
-- Sessions: `~/.mona-agent/sessions/<id>.jsonl` append-only +
-  `mona-agent sessions ls|show|resume|rm`.
+- Sessions: `~/.remote-agent/sessions/<id>.jsonl` append-only +
+  `remote-agent sessions ls|show|resume|rm`.
 - Audit: hash-chained (`h_n = sha256(h_{n-1} || entry)`), 0600, rotated,
-  `mona-agent audit verify`.
+  `remote-agent audit verify`.
 - Logs: JSON Lines to stderr, TRACE..FATAL, traceId/spanId/sessionId,
   regex + entropy redaction; pretty printer only on TTY.
 - OTel: optional peer dep, loaded dynamically, no-op absent. Spans:
   session → step → tool-invocation → subprocess.
-- `mona-agent doctor` (env, perms, connectivity, clock skew, policy lint,
+- `remote-agent doctor` (env, perms, connectivity, clock skew, policy lint,
   keychain) + optional localhost `/healthz` + `/metrics` on
   `--metrics-port`.
 - Credentials: OS keychain first (security / libsecret / DPAPI), 0600 file
-  fallback; never argv (`mona-agent login` reads stdin).
+  fallback; never argv (`remote-agent login` reads stdin).
 - Service units: launchd plist, hardened systemd
   (NoNewPrivileges, PrivateTmp, ProtectSystem=strict, MemoryMax),
   Windows Service wrapper if Windows is claimed.
-  `mona-agent service install|uninstall|status`.
+  `remote-agent service install|uninstall|status`.
 - Containers: distroless multi-stage Dockerfile, non-root, read-only
   rootfs, HEALTHCHECK, docker-compose.yml.
 
 ## 5. Supply chain and release
 
-- Publish to npm; `npm i -g mona-agent` primary, curl|bash fallback.
+- Publish to npm; `npm i -g remote-agent` primary, curl|bash fallback.
 - install.sh: SHA-256 checksum from signed manifest, Sigstore/cosign
   verify, version-pinned by default, `--dry-run`, refuse root,
   shellcheck-clean.

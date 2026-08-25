@@ -1,6 +1,6 @@
 # Software Bill of Materials (SBOM)
 
-Client-side component inventory for the mona-agent device daemon.
+Client-side component inventory for the remote-agent device daemon.
 
 ## Runtime dependencies
 

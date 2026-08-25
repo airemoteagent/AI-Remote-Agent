@@ -1,7 +1,7 @@
 // Plugin tool + dynamic plugin registry — hot-loading, policy gating,
 // management actions.
 //
-// Two fake mona-agent-tool-* packages are built in a temp dir: hello.tool
+// Two fake remote-agent-tool-* packages are built in a temp dir: hello.tool
 // (explicitly allowed in the test policy) and secret.tool (not allowed —
 // must be denied by default). The daemon registry singleton (tools/index.js)
 // is exercised exactly the way the runtime uses it.
@@ -12,26 +12,26 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-plugin-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-plugin-'));
 const FAKE = path.join(TMP, 'plugins');
 const POLICY_PATH = path.join(TMP, 'policy.json');
 
 // Policy: hello.tool explicitly allowed; secret.tool left unknown → denied.
 fs.writeFileSync(POLICY_PATH, JSON.stringify({ version: 1, tools: { 'hello.tool': 'allow' } }));
-process.env.MONA_POLICY = POLICY_PATH;
-process.env.MONA_TOOL_PATH = FAKE;
+process.env.REMOTE_POLICY = POLICY_PATH;
+process.env.REMOTE_TOOL_PATH = FAKE;
 
 const DEFINE_IMPORT = JSON.stringify(path.join(process.cwd(), 'apps/desktop/src/index.js'));
 
 before(() => {
   for (const [pkg, tool, handler] of [
-    ['mona-agent-tool-hello', 'hello.tool', `({ name = 'world' }) => ({ greeting: 'Hello, ' + name + '!' })`],
-    ['mona-agent-tool-secret', 'secret.tool', `() => ({ leaked: true })`],
+    ['remote-agent-tool-hello', 'hello.tool', `({ name = 'world' }) => ({ greeting: 'Hello, ' + name + '!' })`],
+    ['remote-agent-tool-secret', 'secret.tool', `() => ({ leaked: true })`],
   ]) {
     const dir = path.join(FAKE, pkg);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({
-      name: pkg, version: '1.0.0', type: 'module', main: 'index.js', monaAgent: { tools: true },
+      name: pkg, version: '1.0.0', type: 'module', main: 'index.js', remoteAgent: { tools: true },
     }));
     fs.writeFileSync(path.join(dir, 'index.js'), `
 import { defineTool } from ${DEFINE_IMPORT};
@@ -57,7 +57,7 @@ after(() => {
 });
 
 describe('plugin — discovery + policy gating', () => {
-  it('loads plugin tools at runtime from MONA_TOOL_PATH', async () => {
+  it('loads plugin tools at runtime from REMOTE_TOOL_PATH', async () => {
     const loaded = await tools.loadExternalTools();
     assert.ok(loaded >= 2, `expected both plugin tools loaded, got ${loaded}`);
     assert.equal(tools.sources()['hello.tool'], 'plugin');

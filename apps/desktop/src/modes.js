@@ -10,8 +10,8 @@
 //   full      — everything on. All bundled skills, permissive policy,
 //               daemon auto-start on login (launchd / systemd).
 //
-// `mona-agent mode set <name>` applies the whole profile:
-//   - writes ~/.mona-agent/policy.json   (the device-side authority)
+// `remote-agent mode set <name>` applies the whole profile:
+//   - writes ~/.remote-agent/policy.json   (the device-side authority)
 //   - enables / disables bundled skills
 //   - optionally installs the auto-start daemon (full mode)
 //
@@ -23,7 +23,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { loadConfig, saveConfig } from './config.js';
 import { SkillsManager, SKILLS_DIR } from './skills.js';
-import { PRESETS } from '@mona/engine';
+import { PRESETS } from '@remote-agent/engine';
 
 export const MODES = Object.freeze({
   minimal: {
@@ -38,7 +38,7 @@ export const MODES = Object.freeze({
     description: 'Core skills + safe tools. Shell and browser require per-command approval.',
     policy: 'standard',
     skills: ['briefing', 'disk-health'],  // safe, read-only skills
-    daemon: false,                    // run manually: mona-agent start
+    daemon: false,                    // run manually: remote-agent start
   },
   full: {
     label: 'Full — OpenClaw-style daemon',
@@ -51,7 +51,7 @@ export const MODES = Object.freeze({
 
 export const MODE_NAMES = Object.freeze(Object.keys(MODES));
 
-export const POLICY_PATH = process.env.MONA_POLICY || join(homedir(), '.mona-agent', 'policy.json');
+export const POLICY_PATH = process.env.REMOTE_POLICY || join(homedir(), '.remote-agent', 'policy.json');
 
 /** Installed skill names (directories containing a SKILL.md). */
 function installedSkillNames() {
@@ -82,7 +82,7 @@ export function applyMode(name, { installDaemon = null } = {}) {
   // 1) Policy file — the authority for tool tiers + budgets.
   const policy = PRESETS[mode.policy];
   if (!policy) throw new Error(`Unknown policy preset "${mode.policy}"`);
-  mkdirSync(join(homedir(), '.mona-agent'), { recursive: true });
+  mkdirSync(join(homedir(), '.remote-agent'), { recursive: true });
   writeFileSync(POLICY_PATH, JSON.stringify(policy, null, 2) + '\n', { mode: 0o600 });
 
   // 2) Skills — enable exactly the mode's set (disable everything else).
@@ -108,7 +108,7 @@ export function applyMode(name, { installDaemon = null } = {}) {
   };
 }
 
-/** Summary of the current mode (for `mona-agent mode show` / status). */
+/** Summary of the current mode (for `remote-agent mode show` / status). */
 export function modeSummary() {
   const name = currentMode();
   const mode = MODES[name];

@@ -1,6 +1,6 @@
-// doctor.js — `mona-agent doctor`: diagnose the local install in one shot.
+// doctor.js — `remote-agent doctor`: diagnose the local install in one shot.
 //
-// Checks: node version, ~/.mona-agent state (credentials, policy, audit,
+// Checks: node version, ~/.remote-agent state (credentials, policy, audit,
 // workspace), control-plane reachability, BYO provider config, update
 // availability. Best-effort by design — a failed check reports, never
 // crashes the doctor.
@@ -8,7 +8,7 @@
 import { existsSync, accessSync, constants } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { Policy, auditVerify } from '@mona/engine';
+import { Policy, auditVerify } from '@remote-agent/engine';
 import { loadCreds, CLOUD } from './config.js';
 import { VERSION, isUpdateAvailable } from './version.js';
 import { loadProviderConfig } from './transport/local.js';
@@ -43,14 +43,14 @@ export async function runDoctor(opts = {}) {
   add('node', checkNodeVersion(opts.nodeVersion || process.version).ok,
     checkNodeVersion(opts.nodeVersion || process.version).detail);
 
-  const home = opts.home || join(homedir(), '.mona-agent');
-  add('agent dir', checkDirState(home, '~/.mona-agent').ok, checkDirState(home, '~/.mona-agent').detail);
+  const home = opts.home || join(homedir(), '.remote-agent');
+  add('agent dir', checkDirState(home, '~/.remote-agent').ok, checkDirState(home, '~/.remote-agent').detail);
 
   const creds = existsSync(join(home, 'credentials.json'))
     ? (() => { try { return loadCreds(); } catch { return null; } })()
     : null;
   add('credentials', Boolean(creds?.apiKey),
-    creds?.apiKey ? 'credentials.json present (agent ' + (creds.agentId || 'pending') + ')' : 'no credentials — run mona-agent login');
+    creds?.apiKey ? 'credentials.json present (agent ' + (creds.agentId || 'pending') + ')' : 'no credentials — run remote-agent login');
 
   try {
     const p = Policy.load();
@@ -67,17 +67,17 @@ export async function runDoctor(opts = {}) {
   }
   add('audit', audit.ok, audit.ok ? 'audit chain verified' : `audit verify failed: ${audit.error || 'no chain yet'}`);
 
-  const ws = opts.workspace || process.env.MONA_WORKSPACE || join(home, 'workspace');
+  const ws = opts.workspace || process.env.REMOTE_WORKSPACE || join(home, 'workspace');
   add('workspace', checkDirState(ws, 'workspace').ok, checkDirState(ws, 'workspace').detail);
 
   try {
     const provider = loadProviderConfig();
     if (provider) {
       add('provider', true, `BYO brain: ${provider.provider}/${provider.model} (prompts stay on-device)`);
-    } else if (String(opts.transport || process.env.MONA_TRANSPORT || '') === 'local') {
-      add('provider', false, 'MONA_TRANSPORT=local but no provider — run mona-agent provider set <anthropic|openai|ollama>');
+    } else if (String(opts.transport || process.env.REMOTE_TRANSPORT || '') === 'local') {
+      add('provider', false, 'REMOTE_TRANSPORT=local but no provider — run remote-agent provider set <anthropic|openai|ollama>');
     } else {
-      add('provider', true, 'cloud brain (agent.mona.expert vault)');
+      add('provider', true, 'cloud brain (remoteagent.online vault)');
     }
   } catch (err) {
     add('provider', false, err.message);
@@ -97,7 +97,7 @@ export async function runDoctor(opts = {}) {
   } else {
     try {
       const u = await isUpdateAvailable();
-      add('update', true, u.available ? `update available: v${u.latest} (run mona-agent update)` : `up to date (v${VERSION})`);
+      add('update', true, u.available ? `update available: v${u.latest} (run remote-agent update)` : `up to date (v${VERSION})`);
     } catch {
       add('update', false, 'update feed unreachable');
     }

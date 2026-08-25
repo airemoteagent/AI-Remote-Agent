@@ -2,21 +2,21 @@
 
 The EU AI Act (Regulation (EU) 2024/1689) sets obligations based on the
 **risk category** of an AI system. This document records the
-classification and the implemented transparency measures for mona-agent
-and the mona.expert engine.
+classification and the implemented transparency measures for remote-agent
+and the remoteagent.online engine.
 
 ## Classification
 
-**Limited risk (Article 50 — transparency).** mona-agent is an AI
+**Limited risk (Article 50 — transparency).** remote-agent is an AI
 assistant that helps users operate their own devices: it reasons in the
 cloud, executes local tools on request, and answers in chat. It is not
 used in any Annex III high-risk context (no critical infrastructure, no
 biometrics, no employment/credit decisions, no law enforcement) as
-provided by mona.expert.
+provided by remoteagent.online.
 
-The mona.expert engine orchestrates third-party foundation models
+The remoteagent.online engine orchestrates third-party foundation models
 (OpenAI, Anthropic, Google, DeepSeek, OpenRouter) on the user's behalf
-under their own API keys. mona.expert does not deploy or fine-tune
+under their own API keys. remoteagent.online does not deploy or fine-tune
 general-purpose models itself.
 
 ## Transparency obligations — implemented
@@ -27,7 +27,7 @@ general-purpose models itself.
 | AI output is distinguishable | Chat responses are marked `assistant` in the conversation model; no synthetic content is presented as human |
 | Documentation | This page + [COMPLIANCE.md](COMPLIANCE.md) + [SECURITY.md](../SECURITY.md) |
 | Human oversight | Every tool call is visible in the activity feed before, during and after execution; the user can stop the agent at any time; shell actions are argv-based and allowlisted by default, with policy presets for stricter oversight |
-| Record-keeping | Full audit log of tasks, tool calls, LLM calls, and results (`mona_audit_log`, `mona_messages`) + hash-chained local decision log (`~/.mona-agent/audit.jsonl`) |
+| Record-keeping | Full audit log of tasks, tool calls, LLM calls, and results (`mona_audit_log`, `mona_messages`) + hash-chained local decision log (`~/.remote-agent/audit.jsonl`) |
 | Traceability | Every run has a `run_id`; device metrics are snapshotted with history |
 
 ## Safety measures
@@ -49,7 +49,7 @@ general-purpose models itself.
   provider — the cloud engine resolves the model per user preference
   (default `auto`).
 - Provider and model of each call are recorded in the audit log.
-- Users configure their own provider keys; mona.expert stores them
+- Users configure their own provider keys; remoteagent.online stores them
   encrypted (AES-256-GCM) and never shares them.
 
 ## Residual risk & mitigations
@@ -62,4 +62,4 @@ general-purpose models itself.
 
 ## Contact
 
-AI Act / compliance questions: `compliance@mona.expert`.
+AI Act / compliance questions: `compliance@remoteagent.online`.

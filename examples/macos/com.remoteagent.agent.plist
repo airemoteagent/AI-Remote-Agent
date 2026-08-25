@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- mona-agent LaunchAgent — keeps the device agent running on login -->
+<!-- remote-agent LaunchAgent — keeps the device agent running on login -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.monaexpert.agent</string>
+    <string>com.remoteagent.agent</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/bin/zsh</string>
         <string>-c</string>
-        <string>exec $HOME/.local/bin/mona-agent start</string>
+        <string>exec $HOME/.local/bin/remote-agent start</string>
     </array>
 
     <key>RunAtLoad</key>
@@ -19,10 +19,10 @@
     <key>KeepAlive</key>
     <true/>
 
-    <!-- Logs: ~/Library/Logs/mona-agent.log -->
+    <!-- Logs: ~/Library/Logs/remote-agent.log -->
     <key>StandardOutPath</key>
-    <string>/tmp/mona-agent.log</string>
+    <string>/tmp/remote-agent.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/mona-agent.log</string>
+    <string>/tmp/remote-agent.log</string>
 </dict>
 </plist>

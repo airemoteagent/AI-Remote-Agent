@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 let RunStore, Policy, toNdjson, exportAuditNdjson, exportRunEvidenceNdjson;
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-siem-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-siem-'));
 const AUDIT = path.join(TMP, 'audit.jsonl');
-process.env.MONA_AUDIT = AUDIT;
+process.env.REMOTE_AUDIT = AUDIT;
 const p = (name) => path.join(TMP, `${name}.json`);
 
 before(async () => ({

@@ -1,6 +1,6 @@
 # Data Flow & Data Minimization
 
-This document describes where data lives and moves in a mona-agent
+This document describes where data lives and moves in a remote-agent
 deployment, for GDPR/DPIA reviews and security assessments.
 
 ## Data inventory
@@ -15,9 +15,9 @@ deployment, for GDPR/DPIA reviews and security assessments.
 | Usage & cost metrics | Every LLM call | Cloud DB | Aggregated for insights; per-run detail deleted with agent |
 | Device telemetry (CPU/mem/disk/uptime) | Device, every 10 s | Cloud DB (latest + rolling history) | Forgotten on "Forget device" |
 | Device files & command output | Device tools | **Stays on the device** except task-relevant results streamed to the cloud for the brain | Ephemeral per run |
-| Policy file | User (device) | `~/.mona-agent/policy.json` — local, authoritative, never sent to the cloud | Until edited |
-| Local audit log | Device policy engine | `~/.mona-agent/audit.jsonl` — hash-chained, append-only, 0600; never leaves the device | Until deleted by the user |
-| Trash | Device file tool | `~/.mona-agent/trash` — recoverable deletes | Until purged |
+| Policy file | User (device) | `~/.remote-agent/policy.json` — local, authoritative, never sent to the cloud | Until edited |
+| Local audit log | Device policy engine | `~/.remote-agent/audit.jsonl` — hash-chained, append-only, 0600; never leaves the device | Until deleted by the user |
+| Trash | Device file tool | `~/.remote-agent/trash` — recoverable deletes | Until purged |
 
 ## Data flow (one task)
 

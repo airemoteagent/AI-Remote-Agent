@@ -29,7 +29,7 @@ export function isOtelEnabled() {
 export function startSpan(name, attrs = {}) {
   if (!api) return null;
   try {
-    const tracer = api.trace.getTracer('mona-agent');
+    const tracer = api.trace.getTracer('remote-agent');
     return tracer.startSpan(name, { attributes: attrs });
   } catch {
     return null;

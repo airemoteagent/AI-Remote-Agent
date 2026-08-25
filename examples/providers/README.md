@@ -1,20 +1,20 @@
 # BYO providers — bring your own LLM keys
 
-Since v2.10.1 mona-agent can run its brain on-device with **your** keys
+Since v2.10.1 remote-agent can run its brain on-device with **your** keys
 instead of the cloud vault. Prompts never leave the machine, and the
 local policy file still gates every tool.
 
 ## Provider templates
 
-Copy a template to `~/.mona-agent/provider.json` (`chmod 600`), or use
+Copy a template to `~/.remote-agent/provider.json` (`chmod 600`), or use
 the CLI, which writes the 0600 file for you:
 
 ```bash
-mona-agent provider set anthropic              # asks for the key
-mona-agent provider set openai --model gpt-4o-mini
-mona-agent provider set openai --url http://localhost:1234/v1 --model llama-3   # LM Studio / vLLM
-mona-agent provider set ollama --model qwen2.5:7b
-mona-agent provider test                      # one-shot smoke test
+remote-agent provider set anthropic              # asks for the key
+remote-agent provider set openai --model gpt-4o-mini
+remote-agent provider set openai --url http://localhost:1234/v1 --model llama-3   # LM Studio / vLLM
+remote-agent provider set ollama --model qwen2.5:7b
+remote-agent provider test                      # one-shot smoke test
 ```
 
 ## anthropic.json
@@ -56,7 +56,7 @@ No API key. `ollama pull llama3.2` first, then run the agent with the
 daemon stopped from calling home for reasoning:
 
 ```bash
-MONA_TRANSPORT=local mona-agent start
+REMOTE_TRANSPORT=local remote-agent start
 ```
 
 ## Cost governance
@@ -69,5 +69,5 @@ governor keeps working. Override per provider:
   "prices": { "input": 0.5, "output": 1.5 } }
 ```
 
-Show what will be charged: `mona-agent provider status`. Every task's
-token and cost trace lands in `mona-agent audit tail` and the run trace.
+Show what will be charged: `remote-agent provider status`. Every task's
+token and cost trace lands in `remote-agent audit tail` and the run trace.

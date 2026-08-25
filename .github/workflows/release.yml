@@ -58,12 +58,12 @@ jobs:
       - name: Validate signing configuration
         shell: pwsh
         env:
-          MONA_WINDOWS_CERTIFICATE_B64: ${{ secrets.MONA_WINDOWS_CERTIFICATE_B64 }}
-          MONA_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.MONA_WINDOWS_CERTIFICATE_PASSWORD }}
-          MONA_GPG_PRIVATE_KEY: ${{ secrets.MONA_GPG_PRIVATE_KEY }}
+          REMOTE_WINDOWS_CERTIFICATE_B64: ${{ secrets.REMOTE_WINDOWS_CERTIFICATE_B64 }}
+          REMOTE_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.REMOTE_WINDOWS_CERTIFICATE_PASSWORD }}
+          REMOTE_GPG_PRIVATE_KEY: ${{ secrets.REMOTE_GPG_PRIVATE_KEY }}
         run: |
-          $windowsConfigured = $env:MONA_WINDOWS_CERTIFICATE_B64 -and $env:MONA_WINDOWS_CERTIFICATE_PASSWORD
-          $gpgConfigured = $env:MONA_GPG_PRIVATE_KEY
+          $windowsConfigured = $env:REMOTE_WINDOWS_CERTIFICATE_B64 -and $env:REMOTE_WINDOWS_CERTIFICATE_PASSWORD
+          $gpgConfigured = $env:REMOTE_GPG_PRIVATE_KEY
           if (-not $windowsConfigured -or -not $gpgConfigured) {
             Write-Warning 'Release signing credentials are not configured. Artifacts will remain checksum- and provenance-attested but unsigned.'
             'signing=not-configured' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
@@ -89,7 +89,7 @@ jobs:
           TAG="${{ github.ref_name }}"
           tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
             --exclude-vcs --exclude=node_modules --exclude='.github' \
-            -czf "mona-agent-${TAG}.tar.gz" .
+            -czf "remote-agent-${TAG}.tar.gz" .
 
       - name: Generate CycloneDX SBOM
         run: npx --yes @cyclonedx/cyclonedx-npm@1.20.0 --output-file sbom.cyclonedx.json --output-format JSON --spec-version 1.6
@@ -98,14 +98,14 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           test -s sbom.cyclonedx.json
-          sha256sum "mona-agent-${TAG}.tar.gz" > SHA256SUMS
+          sha256sum "remote-agent-${TAG}.tar.gz" > SHA256SUMS
           sha256sum sbom.cyclonedx.json >> SHA256SUMS
           cat SHA256SUMS
 
       - name: Attest source archive provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: mona-agent-${{ github.ref_name }}.tar.gz
+          subject-path: remote-agent-${{ github.ref_name }}.tar.gz
 
       - name: Sign checksums with Sigstore
         uses: sigstore/gh-action-sigstore-python@v3.0.0
@@ -116,6 +116,6 @@ jobs:
         uses: softprops/action-gh-release@c06208fe532ec0f6b2b7e9eb2ddbd3d90c8c8ff7 # v2
         with:
           files: |
-            mona-agent-${{ github.ref_name }}.tar.gz
+            remote-agent-${{ github.ref_name }}.tar.gz
             sbom.cyclonedx.json
             SHA256SUMS

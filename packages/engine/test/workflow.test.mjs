@@ -12,7 +12,7 @@ import fs from 'node:fs';
 
 let runWorkflow, validatePhases, buildPhaseContext, Policy, Budget, MAX_PHASES;
 
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-wf-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-wf-'));
 
 before(async () => {
   ({ runWorkflow, validatePhases, buildPhaseContext, Policy, Budget, MAX_PHASES } = await import('../src/index.mjs'));

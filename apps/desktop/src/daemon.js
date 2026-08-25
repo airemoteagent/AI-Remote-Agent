@@ -1,13 +1,13 @@
 // Daemon — run the agent as a background service, OpenClaw-style.
 //
-//   macOS:  LaunchAgent  ~/Library/LaunchAgents/com.monaexpert.agent.plist
-//   Linux:  systemd user unit  ~/.config/systemd/user/mona-agent.service
+//   macOS:  LaunchAgent  ~/Library/LaunchAgents/com.remoteagent.agent.plist
+//   Linux:  systemd user unit  ~/.config/systemd/user/remote-agent.service
 //
-// `mona-agent daemon install` writes the unit, (re)loads it, and starts it.
-// `mona-agent daemon uninstall` stops + removes it.
-// `mona-agent daemon status` reports service + single-instance state.
+// `remote-agent daemon install` writes the unit, (re)loads it, and starts it.
+// `remote-agent daemon uninstall` stops + removes it.
+// `remote-agent daemon status` reports service + single-instance state.
 //
-// Single-instance guard: a PID file (~/.mona-agent/daemon.pid) prevents two
+// Single-instance guard: a PID file (~/.remote-agent/daemon.pid) prevents two
 // daemons racing for the same control-plane connection. `start` refuses to
 // run twice (unless --force is given, e.g. after a crash with a stale PID).
 
@@ -21,13 +21,13 @@ import { windowsServiceInstall, windowsServiceUninstall, windowsServiceStatus, w
 
 export const PID_FILE = join(PATHS.dir, 'daemon.pid');
 
-const LAUNCHD_LABEL = 'com.monaexpert.agent';
+const LAUNCHD_LABEL = 'com.remoteagent.agent';
 const LAUNCHD_PATH  = join(homedir(), 'Library', 'LaunchAgents', `${LAUNCHD_LABEL}.plist`);
-const SYSTEMD_PATH  = join(homedir(), '.config', 'systemd', 'user', 'mona-agent.service');
+const SYSTEMD_PATH  = join(homedir(), '.config', 'systemd', 'user', 'remote-agent.service');
 
 function agentBin() {
-  // The `mona-agent` shim on PATH; fall back to the repo bin.
-  return process.env.MONA_AGENT_BIN || 'mona-agent';
+  // The `remote-agent` shim on PATH; fall back to the repo bin.
+  return process.env.REMOTE_AGENT_BIN || 'remote-agent';
 }
 
 // ── launchd (macOS) ──────────────────────────────────────────────
@@ -89,7 +89,7 @@ function launchdStatus() {
 // ── systemd (Linux) ──────────────────────────────────────────────
 function systemdUnit() {
   return `[Unit]
-Description=mona-agent — cloud-brained AI agent for this device
+Description=remote-agent — cloud-brained AI agent for this device
 After=network-online.target
 Wants=network-online.target
 
@@ -102,7 +102,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=%h/.mona-agent
+ReadWritePaths=%h/.remote-agent
 MemoryMax=1G
 
 [Install]
@@ -118,18 +118,18 @@ function systemdInstall() {
   mkdirSync(join(homedir(), '.config', 'systemd', 'user'), { recursive: true });
   writeFileSync(SYSTEMD_PATH, systemdUnit(), { mode: 0o644 });
   spawnSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'ignore' });
-  const r = spawnSync('systemctl', ['--user', 'enable', '--now', 'mona-agent.service'], { encoding: 'utf8' });
+  const r = spawnSync('systemctl', ['--user', 'enable', '--now', 'remote-agent.service'], { encoding: 'utf8' });
   return { ok: r.status === 0, output: (r.stdout || '') + (r.stderr || '') };
 }
 
 function systemdUninstall() {
-  spawnSync('systemctl', ['--user', 'disable', '--now', 'mona-agent.service'], { stdio: 'ignore' });
+  spawnSync('systemctl', ['--user', 'disable', '--now', 'remote-agent.service'], { stdio: 'ignore' });
   try { if (existsSync(SYSTEMD_PATH)) unlinkSync(SYSTEMD_PATH); } catch { /* best effort */ }
   spawnSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'ignore' });
 }
 
 function systemdStatus() {
-  const r = spawnSync('systemctl', ['--user', 'is-active', 'mona-agent.service'], { encoding: 'utf8' });
+  const r = spawnSync('systemctl', ['--user', 'is-active', 'remote-agent.service'], { encoding: 'utf8' });
   return {
     installed: systemdInstalled(),
     loaded: r.status === 0 || (r.stdout || '').trim() !== 'inactive',

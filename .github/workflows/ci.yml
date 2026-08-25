@@ -43,7 +43,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          node apps/desktop/bin/mona-agent.js status
+          node apps/desktop/bin/remote-agent.js status
           # Service adapter argument building + output parsing run on every OS
           # (portable unit tests); the SCM script itself is parameterized only.
           if (Get-Content apps/desktop/src/windows-service.ps1 -Raw | Select-String '-Command') {
@@ -81,7 +81,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           test -x apps/desktop/install.sh
-          MONA_REPO=MONAEXPERT/agent apps/desktop/install.sh --dry-run --allow-root
+          REMOTE_REPO=remoteagent-online/remote-agent apps/desktop/install.sh --dry-run --allow-root
 
       - name: Windows installer dry-run acceptance
         if: runner.os == 'Windows'

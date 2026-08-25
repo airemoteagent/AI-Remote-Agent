@@ -1,4 +1,4 @@
-# Contributing to mona-agent
+# Contributing to remote-agent
 
 Thanks for helping build the open-source client! This file tells you how to
 set up, test and propose changes.
@@ -6,7 +6,7 @@ set up, test and propose changes.
 ## Setup
 
 ```bash
-git clone git@github.com:MONAEXPERT/agent.git
+git clone git@github.com:remoteagent-online/remote-agent.git
 cd agent
 npm install
 ```

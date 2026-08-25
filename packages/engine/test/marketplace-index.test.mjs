@@ -17,7 +17,7 @@ describe('signed marketplace index', () => {
     const publisher = generateSigningKeyPair();
     const pluginKeys = generateSigningKeyPair();
     const plugin = signedPlugin(pluginKeys);
-    const base = { generatedAt: '2026-03-12T00:00:00.000Z', publisher: 'Mona Expert', signer: 'marketplace-signer', plugins: [plugin] };
+    const base = { generatedAt: '2026-03-12T00:00:00.000Z', publisher: 'Remote Agent Online', signer: 'marketplace-signer', plugins: [plugin] };
     const index = { ...base, ...signMarketplaceIndex(base, publisher.privateKey) };
 
     const verified = verifyMarketplaceIndex(index, publisher.publicKey, { pluginPublicKeys: { 'plugin-signer': pluginKeys.publicKey } });
@@ -29,7 +29,7 @@ describe('signed marketplace index', () => {
     const publisher = generateSigningKeyPair();
     const pluginKeys = generateSigningKeyPair();
     const plugin = signedPlugin(pluginKeys);
-    const base = { generatedAt: '2026-03-12T00:00:00.000Z', publisher: 'Mona Expert', signer: 'marketplace-signer', plugins: [plugin] };
+    const base = { generatedAt: '2026-03-12T00:00:00.000Z', publisher: 'Remote Agent Online', signer: 'marketplace-signer', plugins: [plugin] };
     const index = { ...base, ...signMarketplaceIndex(base, publisher.privateKey) };
 
     assert.equal(verifyMarketplaceIndex({ ...index, publisher: 'attacker' }, publisher.publicKey).ok, false);

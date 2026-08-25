@@ -8,7 +8,7 @@ The engine also provides a local durable `PolicyRegistry` primitive for centrali
 
 
 The policy engine is the **device-side authority**. It is loaded once from
-local disk (`~/.mona-agent/policy.json` or `MONA_POLICY`) at startup. The
+local disk (`~/.remote-agent/policy.json` or `REMOTE_POLICY`) at startup. The
 control plane can never modify it — remote policy updates are rejected
 outright. The cloud can only ever *ask*; the device *decides*.
 
@@ -39,9 +39,9 @@ unknown tools default to `deny`.
   "rules": [
     { "tool": "sysinfo.*", "effect": "allow" },
     { "tool": "fs.read", "effect": "allow",
-      "when": { "path": { "within": ["~/.mona-agent/workspace"] } } },
+      "when": { "path": { "within": ["~/.remote-agent/workspace"] } } },
     { "tool": "fs.write", "effect": "prompt",
-      "when": { "path": { "within": ["~/.mona-agent/workspace"] },
+      "when": { "path": { "within": ["~/.remote-agent/workspace"] },
                 "size":  { "max": 10485760 } } },
     { "tool": "shell.run", "effect": "prompt",
       "when": { "argv0": { "in": ["git", "npm", "ls", "df"] } } },
@@ -86,14 +86,14 @@ unknown tools default to `deny`.
 | `permissive` | Everything allowed (pre-policy behavior) + startup warning |
 
 ```bash
-mona-agent policy preset strict|standard|permissive
+remote-agent policy preset strict|standard|permissive
 ```
 
-## Debugging: `mona-agent policy explain`
+## Debugging: `remote-agent policy explain`
 
 ```bash
-mona-agent policy explain fs.read path=/tmp/x
-mona-agent policy explain net.fetch url=https://example.com ip=93.184.216.34
+remote-agent policy explain fs.read path=/tmp/x
+remote-agent policy explain net.fetch url=https://example.com ip=93.184.216.34
 ```
 
 Output shows the matched rule (or the default fallback), the effect, and

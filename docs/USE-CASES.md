@@ -1,6 +1,6 @@
 # Use Cases
 
-Concrete scenarios for mona-agent, from personal automation to operations.
+Concrete scenarios for remote-agent, from personal automation to operations.
 
 ## 1. Personal Mac assistant
 Open apps, check system health, run small scripts, control media — from any
@@ -27,7 +27,7 @@ windows) and restart them on demand.
 Every action is traced (reasoning → tool call → result → answer →
 verification) with tokens, cost and latency — exportable as JSONL for audits
 and model fine-tuning. On the device, every policy decision lands in a
-hash-chained, tamper-evident local audit log (`mona-agent audit verify`)
+hash-chained, tamper-evident local audit log (`remote-agent audit verify`)
 and the policy file (presets: strict/standard/permissive) bounds what any
 remote party can ever ask the machine to do. See `additional-documents/`
 for ISO, IEC and CRA readiness.

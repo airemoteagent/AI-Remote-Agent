@@ -5,11 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 let JitAccess, ROLES, auditVerify;
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-jit-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-jit-'));
 const storePath = (name) => path.join(TMP, `${name}.json`);
 const AUDIT = path.join(TMP, 'audit.jsonl');
 // Isolate the shared hash-chained audit log before policy.js reads its default.
-process.env.MONA_AUDIT = AUDIT;
+process.env.REMOTE_AUDIT = AUDIT;
 
 before(async () => ({ JitAccess, ROLES, auditVerify } = await import('../src/index.mjs')));
 

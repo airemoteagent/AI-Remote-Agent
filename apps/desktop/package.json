@@ -1,15 +1,15 @@
 {
-  "name": "mona-agent",
-  "version": "2.11.0",
-  "description": "mona.expert device agent — smart terminal, cloud brain. The only credential it holds is the mona.expert key.",
+  "name": "remote-agent",
+  "version": "3.0.0",
+  "description": "remoteagent.online device agent — smart terminal, cloud brain. The only credential it holds is the remoteagent.online key.",
   "type": "module",
   "private": true,
   "bin": {
-    "mona-agent": "./bin/mona-agent.js"
+    "remote-agent": "./bin/remote-agent.js"
   },
   "dependencies": {
-    "@mona/engine": "^2.1.0",
-    "@mona/protocol": "1.0.0",
+    "@remote-agent/engine": "^2.1.0",
+    "@remote-agent/protocol": "1.0.0",
     "ws": "^8.18.0"
   },
   "engines": {

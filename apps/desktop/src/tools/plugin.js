@@ -1,17 +1,17 @@
 // Plugin tool — dynamic tool plugins, managed at runtime.
 //
-// mona-agent ships with builtin tools; third parties can add more as
-// "plugins" — packages named mona-agent-tool-* (or any dir on
-// MONA_TOOL_PATH) exporting defineTool() descriptors. Plugins are hot-
+// remote-agent ships with builtin tools; third parties can add more as
+// "plugins" — packages named remote-agent-tool-* (or any dir on
+// REMOTE_TOOL_PATH) exporting defineTool() descriptors. Plugins are hot-
 // loadable while the daemon runs:
 //
 //   plugin list            → every tool with its source + policy status
 //   plugin load <path>     → discover + register a plugin directory now
-//   plugin reload          → re-run discovery for MONA_TOOL_PATH
+//   plugin reload          → re-run discovery for REMOTE_TOOL_PATH
 //   plugin remove <name>   → unregister a plugin tool (until next load)
 //
 // SECURITY: a plugin tool is denied by default. The owner must explicitly
-// allow it in ~/.mona-agent/policy.json, e.g.
+// allow it in ~/.remote-agent/policy.json, e.g.
 //   { "tools": { "my.tool": "allow" } }
 // `plugin list` reports exactly which rule each plugin needs. A plugin can
 // never override a builtin or another plugin (collision = hard error).
@@ -19,13 +19,13 @@
 import { tools } from './index.js';
 
 function envToolPaths() {
-  return String(process.env.MONA_TOOL_PATH || '')
+  return String(process.env.REMOTE_TOOL_PATH || '')
     .split(',').map((s) => s.trim()).filter(Boolean);
 }
 
 export const plugin = {
   name: 'plugin',
-  description: 'Manage dynamic tool plugins loaded at runtime. Actions: list (every tool with source + policy status), load <path> (discover + register a plugin directory now), reload (re-run MONA_TOOL_PATH discovery), remove <name> (unregister a plugin tool). Plugin tools are denied by policy until the owner allows them in ~/.mona-agent/policy.json under "tools" — list shows the exact rule needed.',
+  description: 'Manage dynamic tool plugins loaded at runtime. Actions: list (every tool with source + policy status), load <path> (discover + register a plugin directory now), reload (re-run REMOTE_TOOL_PATH discovery), remove <name> (unregister a plugin tool). Plugin tools are denied by policy until the owner allows them in ~/.remote-agent/policy.json under "tools" — list shows the exact rule needed.',
   args: {
     action: 'string — list | load | reload | remove',
     path: 'string — plugin directory or package dir (load only)',
@@ -55,8 +55,8 @@ export const plugin = {
           plugins: plugins.length,
           tools: entries,
           note: plugins.length
-            ? 'Plugin tools shown above with policy status — allow them in ~/.mona-agent/policy.json before use.'
-            : 'No plugin tools loaded. Use plugin load <path> or set MONA_TOOL_PATH.',
+            ? 'Plugin tools shown above with policy status — allow them in ~/.remote-agent/policy.json before use.'
+            : 'No plugin tools loaded. Use plugin load <path> or set REMOTE_TOOL_PATH.',
         };
       }
       case 'load': {
@@ -67,12 +67,12 @@ export const plugin = {
           loaded,
           note: loaded
             ? `${loaded} plugin tool(s) loaded. Check policy status with plugin list.`
-            : 'No plugin tools found at that path (expected a dir with mona-agent-tool-* packages or a package exporting defineTool()).',
+            : 'No plugin tools found at that path (expected a dir with remote-agent-tool-* packages or a package exporting defineTool()).',
         };
       }
       case 'reload': {
         const loaded = await tools.loadExternalTools(envToolPaths());
-        return { loaded, note: `${loaded} new plugin tool(s) loaded from MONA_TOOL_PATH + node_modules.` };
+        return { loaded, note: `${loaded} new plugin tool(s) loaded from REMOTE_TOOL_PATH + node_modules.` };
       }
       case 'remove': {
         const name = String(args.name || '').trim();

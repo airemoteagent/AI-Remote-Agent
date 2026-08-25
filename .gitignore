@@ -4,7 +4,7 @@ website/node_modules/
 package-lock.json
 
 # Never commit credentials or data
-.mona-agent/
+.remote-agent/
 credentials.json
 config.json
 .env

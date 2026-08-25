@@ -9,7 +9,7 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { auditWrite } from './policy.js';
 
-const DEFAULT_STORE = process.env.MONA_POLICY_REGISTRY_STORE || join(homedir(), '.mona-agent', 'policy-registry.json');
+const DEFAULT_STORE = process.env.REMOTE_POLICY_REGISTRY_STORE || join(homedir(), '.remote-agent', 'policy-registry.json');
 const MAX_REVISIONS = 1000;
 const EFFECTS = new Set(['allow', 'deny', 'prompt', 'confirm']);
 

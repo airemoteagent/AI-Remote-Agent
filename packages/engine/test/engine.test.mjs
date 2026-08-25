@@ -6,7 +6,7 @@ import fs from 'node:fs';
 
 let Policy, Budget, MemoryStore, TaskLoop, parseBrainReply;
 
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-engine-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-engine-'));
 
 before(async () => {
   ({ Policy, Budget, MemoryStore, TaskLoop, parseBrainReply } = await import('../src/index.mjs'));

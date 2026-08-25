@@ -1,10 +1,10 @@
-// Terminal dashboard — full-screen TUI for the mona-agent daemon.
+// Terminal dashboard — full-screen TUI for the remote-agent daemon.
 // Zero external dependencies — pure ANSI escape codes + Node builtins.
 // Multi-OS support (macOS, Linux, Windows Terminal).
 //
 // Features:
 //   • Connection state machine with animated spinner + reconnect attempts
-//   • Inline login (press l) — paste your agent.mona.expert API key
+//   • Inline login (press l) — paste your remoteagent.online API key
 //   • Setup / connect guide shown when no API key is saved yet
 //   • Live system metrics, streaming task preview, wrapped activity log
 //   • Adaptive layout: side-by-side on wide terminals, stacked on narrow
@@ -206,7 +206,7 @@ export class Dashboard {
 
   start() {
     if (!this.#out.isTTY) {
-      process.stderr.write('TUI requires a terminal (TTY). Use "mona-agent start" for headless mode.\n');
+      process.stderr.write('TUI requires a terminal (TTY). Use "remote-agent start" for headless mode.\n');
       process.exit(1);
     }
 
@@ -221,7 +221,7 @@ export class Dashboard {
 
     if (this.#agent) this.#wireAgent(this.#agent);
     else if (loadCreds()) this.#log('info', 'API key found — press r to start the agent');
-    else this.#log('info', 'No API key saved — press l to log in, or run: mona-agent login');
+    else this.#log('info', 'No API key saved — press l to log in, or run: remote-agent login');
 
     this.#renderTimer = setInterval(() => this.#render(), 200);
     this.#render();
@@ -381,7 +381,7 @@ export class Dashboard {
   #startLogin() {
     this.#inputMode = 'login';
     this.#inputBuf = '';
-    this.#inputLabel = 'Paste your agent.mona.expert API key, then press Enter:';
+    this.#inputLabel = 'Paste your remoteagent.online API key, then press Enter:';
     this.#log('info', 'Login prompt — paste API key (Esc/Ctrl+C cancels)');
   }
 
@@ -428,7 +428,7 @@ export class Dashboard {
     }
 
     // ── Header ────────────────────────────────────────────────────
-    const title = `${ansi.bold}${ansi.fg.bCyan}mona-agent${ansi.reset} ${ansi.dim}v${DEFAULTS.version}${ansi.reset} ${PLATFORM_ICON[PLATFORM] || ''}`;
+    const title = `${ansi.bold}${ansi.fg.bCyan}remote-agent${ansi.reset} ${ansi.dim}v${DEFAULTS.version}${ansi.reset} ${PLATFORM_ICON[PLATFORM] || ''}`;
     const chips = [
       this.#state.agentId
         ? `${ansi.dim}${ansi.fg.cyan}●${ansi.reset} ${this.#state.agentId}`
@@ -558,14 +558,14 @@ export class Dashboard {
   #renderHelp(w, W, H) {
     const lines = [
       '',
-      `  ${ansi.bold}${ansi.fg.bCyan}mona-agent${ansi.reset} v${DEFAULTS.version} ${PLATFORM_ICON[PLATFORM] || ''} — ${ansi.dim}${PLATFORM_LABEL[PLATFORM]} | Node ${process.version}${ansi.reset}`,
+      `  ${ansi.bold}${ansi.fg.bCyan}remote-agent${ansi.reset} v${DEFAULTS.version} ${PLATFORM_ICON[PLATFORM] || ''} — ${ansi.dim}${PLATFORM_LABEL[PLATFORM]} | Node ${process.version}${ansi.reset}`,
       '',
       `  ${ansi.bold}${ansi.fg.bGreen}Connect your agent${ansi.reset}`,
-      `  ${ansi.fg.gray}1.${ansi.reset} Get an API key at ${ansi.fg.bCyan}https://agent.mona.expert${ansi.reset}`,
-      `  ${ansi.fg.gray}2.${ansi.reset} Press ${ansi.fg.bGreen}l${ansi.reset} to paste it here — or run: ${ansi.fg.bCyan}mona-agent login${ansi.reset}`,
+      `  ${ansi.fg.gray}1.${ansi.reset} Get an API key at ${ansi.fg.bCyan}https://remoteagent.online${ansi.reset}`,
+      `  ${ansi.fg.gray}2.${ansi.reset} Press ${ansi.fg.bGreen}l${ansi.reset} to paste it here — or run: ${ansi.fg.bCyan}remote-agent login${ansi.reset}`,
       `  ${ansi.fg.gray}3.${ansi.reset} Press ${ansi.fg.bGreen}r${ansi.reset} to (re)connect — status shows in the header`,
-      `  ${ansi.fg.gray}4.${ansi.reset} Send commands from the ${ansi.fg.bCyan}agent.mona.expert${ansi.reset} dashboard`,
-      `  ${ansi.fg.gray}5.${ansi.reset} Headless mode: ${ansi.fg.bCyan}mona-agent start${ansi.reset}  ·  test: ${ansi.fg.bCyan}mona-agent connect${ansi.reset}`,
+      `  ${ansi.fg.gray}4.${ansi.reset} Send commands from the ${ansi.fg.bCyan}remoteagent.online${ansi.reset} dashboard`,
+      `  ${ansi.fg.gray}5.${ansi.reset} Headless mode: ${ansi.fg.bCyan}remote-agent start${ansi.reset}  ·  test: ${ansi.fg.bCyan}remote-agent connect${ansi.reset}`,
       '',
       `  ${ansi.bold}Key Bindings${ansi.reset}`,
       '',
@@ -627,13 +627,13 @@ export class Dashboard {
         `${ansi.bold}${ansi.fg.bCyan}Connect your agent${ansi.reset}`,
         '',
         `${ansi.fg.gray}1.${ansi.reset} Get an API key at`,
-        `   ${ansi.fg.bCyan}agent.mona.expert${ansi.reset}`,
+        `   ${ansi.fg.bCyan}remoteagent.online${ansi.reset}`,
         `${ansi.fg.gray}2.${ansi.reset} Press ${ansi.fg.bGreen}l${ansi.reset} to paste it here`,
-        `   ${ansi.dim}(or run: mona-agent login)${ansi.reset}`,
+        `   ${ansi.dim}(or run: remote-agent login)${ansi.reset}`,
         `${ansi.fg.gray}3.${ansi.reset} Agent connects automatically`,
         `${ansi.fg.gray}4.${ansi.reset} Control it from the dashboard`,
         '',
-        `${ansi.dim}Headless: mona-agent start${ansi.reset}`,
+        `${ansi.dim}Headless: remote-agent start${ansi.reset}`,
       ];
       while (lines.length < rows) lines.push('');
       return lines;
@@ -653,7 +653,7 @@ export class Dashboard {
 
     const lines = [
       `${ansi.fg.green}${ICON.done} Idle — waiting for commands${ansi.reset}`,
-      `${ansi.dim}Control this agent from agent.mona.expert${ansi.reset}`,
+      `${ansi.dim}Control this agent from remoteagent.online${ansi.reset}`,
       '',
       `${ansi.fg.gray}Tasks${ansi.reset}  ${ansi.fg.bWhite}${s.tasks}${ansi.reset} done`,
       `${ansi.fg.gray}Tokens${ansi.reset} ${ansi.fg.bWhite}${s.tokens}${ansi.reset} total`,

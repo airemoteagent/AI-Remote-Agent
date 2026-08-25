@@ -18,7 +18,7 @@ import dns from 'node:dns/promises';
 import http from 'node:http';
 import https from 'node:https';
 
-const UA = 'mona-agent/1.0.0';
+const UA = 'remote-agent/1.0.0';
 const MAX_BODY = 50_000;  // 50 KB response cap
 const TIMEOUT  = 15_000;  // 15s total (incl. redirects)
 const MAX_REDIRECTS = 5;

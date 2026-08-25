@@ -10,7 +10,7 @@ const port = server.address().port;
 const url = `ws://127.0.0.1:${port}/ws?role=device`;
 
 // ControlChannel reads CLOUD.wsUrl at import time — import after env is set.
-process.env.MONA_CLOUD_WS = url;
+process.env.REMOTE_CLOUD_WS = url;
 const { ControlChannel } = await import('../src/control.js');
 
 let connections = 0;

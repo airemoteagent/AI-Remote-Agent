@@ -41,13 +41,13 @@ describe('metrics server', () => {
     const r = await fetch(`http://127.0.0.1:${PORT}/metrics`);
     assert.equal(r.status, 200);
     const text = await r.text();
-    assert.match(text, /mona_agent_up 1/);
-    assert.match(text, /mona_agent_tasks_total 3/);
-    assert.match(text, /mona_agent_tool_calls_total 7/);
-    assert.match(text, /mona_agent_errors_total 1/);
-    assert.match(text, /mona_agent_connected 1/);
-    assert.match(text, /mona_agent_budget_spent_usd 0.0042/);
-    assert.match(text, /mona_agent_queue_size 2/);
+    assert.match(text, /remote_agent_up 1/);
+    assert.match(text, /remote_agent_tasks_total 3/);
+    assert.match(text, /remote_agent_tool_calls_total 7/);
+    assert.match(text, /remote_agent_errors_total 1/);
+    assert.match(text, /remote_agent_connected 1/);
+    assert.match(text, /remote_agent_budget_spent_usd 0.0042/);
+    assert.match(text, /remote_agent_queue_size 2/);
   });
 
   it('unknown paths 404', async () => {
@@ -59,7 +59,7 @@ describe('metrics server', () => {
     state.connected = false;
     const r = await fetch(`http://127.0.0.1:${PORT}/metrics`);
     const text = await r.text();
-    assert.match(text, /mona_agent_connected 0/);
+    assert.match(text, /remote_agent_connected 0/);
     state.connected = true;
   });
 });

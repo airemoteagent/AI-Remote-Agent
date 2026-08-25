@@ -1,4 +1,4 @@
-// WebSocket control channel — the device dials OUT to agent.mona.expert.
+// WebSocket control channel — the device dials OUT to remoteagent.online.
 // The WEBSITE is the controller: it sends commands down; the device executes
 // them and streams metrics, steps, tokens, and results back up.
 // There is NO local server and NO local UI served over HTTP.
@@ -9,7 +9,7 @@ import os from 'node:os';
 import { statfsSync } from 'node:fs';
 import { CLOUD, DEFAULTS } from './config.js';
 import { log } from './log.js';
-import { envelope, TYPES, isTerminalClose, parseFrame, checkVersion, validateCommandFrame, CLOSE_CODES } from '@mona/protocol';
+import { envelope, TYPES, isTerminalClose, parseFrame, checkVersion, validateCommandFrame, CLOSE_CODES } from '@remote-agent/protocol';
 
 // ── Versioned frames ──────────────────────────────────────────────
 // Every outbound frame is built with the shared wire contract
@@ -95,8 +95,8 @@ export class ControlChannel extends EventEmitter {
     this.#ws = new WebSocket(url, {
       headers: {
         'authorization':    `Bearer ${this.#apiKey}`,
-        'x-mona-agent-id':  this.#agentId || '',
-        'user-agent':        `mona-agent/${DEFAULTS.version}`,
+        'x-remote-agent-id':  this.#agentId || '',
+        'user-agent':        `remote-agent/${DEFAULTS.version}`,
       },
     });
 
@@ -106,7 +106,7 @@ export class ControlChannel extends EventEmitter {
 
       if (CLOUD.platform === 'docker') {
         // Docker platform protocol: flat register message, no hello handshake.
-        this.#sendFlat('register', { name: os.hostname(), model: `mona-agent/${DEFAULTS.version}` });
+        this.#sendFlat('register', { name: os.hostname(), model: `remote-agent/${DEFAULTS.version}` });
       } else {
         this.#send(TYPES.HELLO, {
           agentId:  this.#agentId,
@@ -161,7 +161,7 @@ export class ControlChannel extends EventEmitter {
       if (isTerminalClose(code)) {
         this.#stopped = true;
         clearTimeout(this.#reconnectTimer);
-        log.error(`Cloud rejected credentials (code ${code}) — stopping. Run: mona-agent login`);
+        log.error(`Cloud rejected credentials (code ${code}) — stopping. Run: remote-agent login`);
         this.emit('auth-failed', code);
         this.emit('disconnected', code);
         return;

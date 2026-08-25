@@ -1,6 +1,6 @@
 # PRICING — SaaS sustainability plan (control-plane side)
 
-> This document specs the **private control plane** (agent.mona.expert).
+> This document specs the **private control plane** (remoteagent.online).
 > The open-source client stays MIT and free; the plane is the product.
 > BYO keys do not threaten this model — see [Why BYO doesn't hurt](#why-byo-doesnt-hurt).
 
@@ -58,7 +58,7 @@ Every event below is **plane work**, independent of vault-vs-BYO:
 1. BYO users consume **identical** plane work (queue, cron, audit,
    memory, fleet) — they simply pay their own provider.
 2. BYO on-device is gated as a **Pro feature** (`provider.json` +
-   `MONA_TRANSPORT=local` in the client); free tier routes through the
+   `REMOTE_TRANSPORT=local` in the client); free tier routes through the
    vault. The escape hatch is the upgrade path.
 3. The offline/Ollama segment BYO unlocks is the same segment that stars
    repos and spreads word-of-mouth — marketing acquisition, not

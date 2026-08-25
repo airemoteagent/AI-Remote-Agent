@@ -22,7 +22,7 @@ import { setAgentRoots } from './tools/files.js';
 import { security as shellSecurity } from './tools/shell.js';
 import { CLOUD } from './config.js';
 import { log } from './log.js';
-import { TaskLoop, Policy, Budget, MemoryStore, parseBrainReply, VectorStore, auditWrite, runSubtasks, MAX_SUB_STEPS, GoalStore, parseGoalMarker, buildGoalRoundPrompt, goalRoundTaskText, runWorkflow, RunStore } from '@mona/engine';
+import { TaskLoop, Policy, Budget, MemoryStore, parseBrainReply, VectorStore, auditWrite, runSubtasks, MAX_SUB_STEPS, GoalStore, parseGoalMarker, buildGoalRoundPrompt, goalRoundTaskText, runWorkflow, RunStore, ToolCache, DEFAULT_TOOL_CACHE_PATH } from '@remote-agent/engine';
 import { TaskQueue } from './taskqueue.js';
 import { configureDelegateRunner } from './tools/delegate.js';
 import { configureGoalRunner } from './tools/goal.js';
@@ -49,7 +49,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * brain sees at task start — facts, preferences and lessons accumulate
  * across tasks and restarts. Capped to keep the prompt lean.
  */
-export function loadMemoryContext(dir = process.env.MONA_MEMORY_DIR || join(homedir(), '.mona-agent', 'memory'), maxChars = 3000) {
+export function loadMemoryContext(dir = process.env.REMOTE_MEMORY_DIR || join(homedir(), '.remote-agent', 'memory'), maxChars = 3000) {
   try {
     if (!existsSync(dir)) return '';
     const files = readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
@@ -138,6 +138,7 @@ export class AgentDaemon extends EventEmitter {
   #policy;
   #budget;
   #memory;
+  #toolCache;
   // Shared vector index (loaded lazily once) — notes + workspace files
   // searched semantically; feeds the per-task vector recall context.
   #vectorStore = null;
@@ -157,11 +158,11 @@ export class AgentDaemon extends EventEmitter {
   // Durable local run ledger: lifecycle, checkpoints, approvals, and
   // side-effect attempt contracts survive daemon restarts.
   #runs = new RunStore({});
-  // BYO brain: when a provider.json exists (or MONA_TRANSPORT=local forces
+  // BYO brain: when a provider.json exists (or REMOTE_TRANSPORT=local forces
   // it), reasoning runs on-device against the user's own keys — the cloud
   // keeps coordinating (queue, cron, audit) but never sees a prompt.
   #localConfig = null;
-  // Localhost health/metrics (MONA_METRICS_PORT) — bound to 127.0.0.1 only.
+  // Localhost health/metrics (REMOTE_METRICS_PORT) — bound to 127.0.0.1 only.
   #metricsPort = null;
   #stopMetrics = null;
   #startedAt = 0;
@@ -170,13 +171,13 @@ export class AgentDaemon extends EventEmitter {
     super();
     this.#creds = creds;
 
-    // BYO-key local brain: MONA_TRANSPORT=local fails fast when nothing is
+    // BYO-key local brain: REMOTE_TRANSPORT=local fails fast when nothing is
     // configured; otherwise a provider.json enables it automatically.
     const mode = transportMode();
     if (mode === 'local') this.#localConfig = requireLocalProvider();
     else this.#localConfig = loadProviderConfig();
 
-    // Policy file (MONA_POLICY or ~/.mona-agent/policy.json) governs tool
+    // Policy file (REMOTE_POLICY or ~/.remote-agent/policy.json) governs tool
     // authorization and budget caps; safe defaults apply when absent.
     this.#policy = Policy.load();
     this.#budget = new Budget({
@@ -184,6 +185,7 @@ export class AgentDaemon extends EventEmitter {
       dailyCostUsd: this.#policy.dailyCostUsd,
     });
     this.#memory = new MemoryStore({});
+    this.#toolCache = new ToolCache({ storePath: DEFAULT_TOOL_CACHE_PATH });
 
     // Incomplete read-only runs can safely be resumed after a crash. Runs
     // containing unfinished side effects remain visible in the ledger but are
@@ -235,7 +237,7 @@ export class AgentDaemon extends EventEmitter {
   /** Start the daemon — connect to cloud and begin accepting commands. */
   start({ force = false } = {}) {
     if (!force && alreadyRunning()) {
-      const err = new Error('mona-agent is already running (see ~/.mona-agent/daemon.pid). Use `mona-agent daemon status`, or start with --force after a crash.');
+      const err = new Error('remote-agent is already running (see ~/.remote-agent/daemon.pid). Use `remote-agent daemon status`, or start with --force after a crash.');
       err.code = 'EALREADYRUNNING';
       throw err;
     }
@@ -244,17 +246,17 @@ export class AgentDaemon extends EventEmitter {
     if (this.#localConfig) {
       log.info(`Brain: BYO local (${this.#localConfig.provider}/${this.#localConfig.model}) — prompts never leave this device`);
     } else {
-      log.info(`Brain: cloud (agent.mona.expert)`);
+      log.info(`Brain: cloud (remoteagent.online)`);
     }
     writePid();
     // Optional OTel: spans when @opentelemetry/api is installed, no-op
     // otherwise. Best-effort — never blocks startup.
     initOtel().then((ok) => { if (ok) log.info('OTel: spans enabled (@opentelemetry/api detected)'); });
-    // Optional localhost /healthz + /metrics (MONA_METRICS_PORT). 127.0.0.1
+    // Optional localhost /healthz + /metrics (REMOTE_METRICS_PORT). 127.0.0.1
     // only — for systemd/Docker health checks and local Prometheus.
-    if (process.env.MONA_METRICS_PORT && Number(process.env.MONA_METRICS_PORT) > 0) {
+    if (process.env.REMOTE_METRICS_PORT && Number(process.env.REMOTE_METRICS_PORT) > 0) {
       this.#startedAt = Date.now();
-      this.#metricsPort = Number(process.env.MONA_METRICS_PORT);
+      this.#metricsPort = Number(process.env.REMOTE_METRICS_PORT);
       this.#stopMetrics = startMetricsServer({
         port: this.#metricsPort,
         getState: () => ({
@@ -267,7 +269,7 @@ export class AgentDaemon extends EventEmitter {
       });
       log.info(`Health: http://127.0.0.1:${this.#metricsPort}/healthz · metrics: /metrics`);
     }
-    // Dynamic plugins: hot-load mona-agent-tool-* packages + MONA_TOOL_PATH
+    // Dynamic plugins: hot-load remote-agent-tool-* packages + REMOTE_TOOL_PATH
     // so the tool list advertised to the cloud includes them. Best-effort —
     // a broken plugin never blocks startup.
     tools.loadExternalTools()
@@ -711,7 +713,7 @@ export class AgentDaemon extends EventEmitter {
         const systemPrompt = this.#toolsPrompt(cloudTask, brain, memoryCtx, recalled, vectorCtx, goalCtx);
 
         // Loop events → dashboard + audit trace (never silent). Every event is
-        // also written to the local hash-chained audit log (mona-agent audit),
+        // also written to the local hash-chained audit log (remote-agent audit),
         // so the device keeps its own tamper-evident copy of what was done.
         const wireLoop = (loop) => {
           loop.on('step', (i, m) => {
@@ -816,6 +818,7 @@ export class AgentDaemon extends EventEmitter {
           budget: this.#budget,
           maxSteps: brain.maxSteps,
           temperature: brain.temperature,
+          toolCache: this.#toolCache,
         });
         wireLoop(loop);
 
@@ -1109,7 +1112,7 @@ export class AgentDaemon extends EventEmitter {
   // ── Persistent multi-round goals (the `goal` tool) ──────────────
   // A goal keeps running rounds through the serial task queue until the
   // brain reports GOAL_COMPLETE: true or the round cap is reached. State
-  // persists in ~/.mona-agent/goals.json, so goals survive restarts.
+  // persists in ~/.remote-agent/goals.json, so goals survive restarts.
   async #startGoal({ objective, maxRounds }) {
     const goal = this.#goals.create({ objective, maxRounds });
     log.info(`Goal ${goal.id} started (${maxRounds} rounds max): ${objective.slice(0, 80)}`);
@@ -1189,7 +1192,7 @@ export class AgentDaemon extends EventEmitter {
           (Array.isArray(caps.shell?.allow) && caps.shell.allow.length ? `- Extra shell commands you may run: ${caps.shell.allow.join(', ')} (plus the standard allowlist).\n` : '') +
           (Array.isArray(caps.paths?.allow) && caps.paths.allow.length ? `- You may also read/write files under: ${caps.paths.allow.join(', ')} (paths outside the workspace need these to be listed).\n` : '')
         : '');
-    let p = `You are mona-agent — the AI agent controlling this device (${process.platform}). You reason deeply and act precisely: plan, act, observe, reflect, then answer.
+    let p = `You are remote-agent — the AI agent controlling this device (${process.platform}). You reason deeply and act precisely: plan, act, observe, reflect, then answer.
 
 ## Reasoning protocol
 Think before you act: what does the user actually want, what do you already know, what do you still need, and what is the safest way to get it.

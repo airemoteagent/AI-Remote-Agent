@@ -1,6 +1,6 @@
 # Compliance & Standards Readiness
 
-mona-agent is the open-source client for the mona.expert cloud. This document
+remote-agent is the open-source client for the remoteagent.online cloud. This document
 summarizes how the architecture maps to common compliance frameworks. Detailed
 mappings live in the sibling documents of this folder.
 
@@ -13,7 +13,7 @@ device. Every run is audit-logged with per-step usage, tokens, cost and timing.
 
 ## Framework alignment at a glance
 
-| Framework | Scope | How mona-agent aligns |
+| Framework | Scope | How remote-agent aligns |
 |---|---|---|
 | **EU CRA** (Cyber Resilience Act) | Products with digital elements | SBOM-ready, signed releases, documented vulnerability handling, secure-by-default device, free security updates for the support window — see `CRA-READINESS.md` |
 | **ISO/IEC 27001** | Information security management | Documented controls mapping (Annex A), crypto, access control, logging, incident handling — see `ISO-27001-MAPPING.md` |
@@ -41,14 +41,14 @@ device. Every run is audit-logged with per-step usage, tokens, cost and timing.
    tool result, token count, cost and latency is stored and exportable
    (JSONL) — including per-step reasoning for incident reconstruction. On
    the device, every policy decision is additionally appended to a
-   hash-chained, tamper-evident local audit log (`mona-agent audit verify`).
+   hash-chained, tamper-evident local audit log (`remote-agent audit verify`).
 6. **Self-healing operation.** Transient failures retry with backoff, malformed
    brain replies trigger corrective nudges, stranded tasks expire with a
    closing message instead of replaying days later.
 7. **Rate limiting & plan separation.** Free and Pro plans enforce request
    limits per user and per device; the local policy engine adds per-tool
    rate limits that the control plane cannot override.
-8. **Local policy is authoritative.** `~/.mona-agent/policy.json`
+8. **Local policy is authoritative.** `~/.remote-agent/policy.json`
    (allow/deny/confirm, presets, rate limits) is loaded from disk at
    startup — a compromised or malicious control plane can request, but
    the device decides.

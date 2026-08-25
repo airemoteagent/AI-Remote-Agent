@@ -11,13 +11,13 @@ import { execFileSync } from 'node:child_process';
 // Isolate policy: the registry gates every call through the policy
 // engine, which denies unknown tools by default. Give the test tools a
 // permissive local policy BEFORE the registry module is imported.
-const POLICY_HOME = mkdtempSync(join(tmpdir(), 'mona-sdk-policy-'));
+const POLICY_HOME = mkdtempSync(join(tmpdir(), 'remote-agent-sdk-policy-'));
 writeFileSync(join(POLICY_HOME, 'policy.json'), JSON.stringify({
   version: 1,
   audit: true,
   tools: { echo: 'allow', hello: 'allow' },
 }, null, 2));
-process.env.MONA_POLICY = join(POLICY_HOME, 'policy.json');
+process.env.REMOTE_POLICY = join(POLICY_HOME, 'policy.json');
 
 const { defineTool, isTool } = await import('../src/tools/define.js');
 const { ToolRegistry, discoverExternalTools } = await import('../src/tools/registry.js');
@@ -95,18 +95,18 @@ describe('toSchemas dialects', () => {
 });
 
 describe('external tool package discovery', () => {
-  const FAKE = mkdtempSync(join(tmpdir(), 'mona-tools-'));
+  const FAKE = mkdtempSync(join(tmpdir(), 'remote-agent-tools-'));
 
   before(() => {
-    // Simulate: node_modules/mona-agent-tool-hello with a monaAgent manifest.
-    const pkgDir = join(FAKE, 'node_modules', 'mona-agent-tool-hello');
+    // Simulate: node_modules/remote-agent-tool-hello with a remoteAgent manifest.
+    const pkgDir = join(FAKE, 'node_modules', 'remote-agent-tool-hello');
     mkdirSync(pkgDir, { recursive: true });
     writeFileSync(join(pkgDir, 'package.json'), JSON.stringify({
-      name: 'mona-agent-tool-hello',
+      name: 'remote-agent-tool-hello',
       version: '1.0.0',
       type: 'module',
       main: 'index.js',
-      monaAgent: { tools: ['hello'] },
+      remoteAgent: { tools: ['hello'] },
     }));
     writeFileSync(join(pkgDir, 'index.js'), `
 import { defineTool } from ${JSON.stringify(join(process.cwd(), 'apps/desktop/src/index.js'))};

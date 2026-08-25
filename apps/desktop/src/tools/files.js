@@ -1,5 +1,5 @@
 // File system tools — sandboxed to a workspace directory.
-// Default workspace: $MONA_WORKSPACE or ~/.mona-agent/workspace
+// Default workspace: $REMOTE_WORKSPACE or ~/.remote-agent/workspace
 //
 // Sandbox guarantees:
 //   - Paths are resolved and containment-checked with a trailing-separator
@@ -9,15 +9,15 @@
 //   - TOCTOU: files are opened with O_NOFOLLOW and the opened descriptor is
 //     fstat'd — the file we operate on is the file we checked.
 //   - Special files (/dev, FIFOs, sockets, block/char devices) are refused.
-//   - Delete moves to ~/.mona-agent/trash by default; --purge removes for real.
+//   - Delete moves to ~/.remote-agent/trash by default; --purge removes for real.
 
 import fs from 'node:fs/promises';
 import { constants as FSC } from 'node:fs';
 import path from 'node:path';
 import { homedir } from 'node:os';
 
-const WORKSPACE = process.env.MONA_WORKSPACE || path.join(homedir(), '.mona-agent', 'workspace');
-const TRASH = process.env.MONA_TRASH || path.join(homedir(), '.mona-agent', 'trash');
+const WORKSPACE = process.env.REMOTE_WORKSPACE || path.join(homedir(), '.remote-agent', 'workspace');
+const TRASH = process.env.REMOTE_TRASH || path.join(homedir(), '.remote-agent', 'trash');
 const MAX_READ_BYTES  = 50_000;
 const MAX_WRITE_BYTES = 1_000_000; // 1 MB
 

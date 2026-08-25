@@ -13,7 +13,7 @@ const baseManifest = {
   capabilities: ['files.read', 'files.trash'],
   compatibility: '>=2.11.0',
   contentHash: 'sha256:deadbeef',
-  provenance: 'github.com/MONAEXPERT/agent@abc123',
+  provenance: 'github.com/remoteagent-online/remote-agent@abc123',
 };
 
 describe('plugin manifest signing', () => {

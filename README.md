@@ -36,32 +36,37 @@ tags:
 - background-jobs
 - vector-memory
 - cron
-- mona-expert
+- remote-agent
 language:
 - en
 ---
 
-# MONA — a local runtime for AI agents, with the controls an enterprise needs
+# Remote Agent Online
+
+**The remote AI agent for all jobs and tasks.** One command installs an AI agent on
+your own machine that streams to **remoteagent.online** and does real work — run
+commands, manage files, browse the web, automate, and remember — under a policy you
+control, with a tamper-evident audit trail. MIT-licensed, one runtime dependency.
+macOS · Linux · Windows/WSL2 · Raspberry Pi.
+
+    curl -fsSL https://remoteagent.online/install.sh | bash
+    remote-agent login      # pair with remoteagent.online (installed, unconnected until you do)
+    remote-agent start      # the daemon starts polling for work
+
+Then chat from https://remoteagent.online — or point any AI agent at the control plane.
 
 <p align="center">
-  <strong>MONA runs AI agents on your own hardware under a policy you control. It gives those agents<br/>
-  bounded, auditable access to a machine — and builds the enterprise controls<br/>
-  (device identity, tenant isolation, policy governance, release integrity)<br/>
-  into the open-source core instead of bolting them on. MIT-licensed, one runtime dependency.</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/MONAEXPERT/agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://github.com/remoteagent-online/remote-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg" alt="Node.js 20+"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20WSL2-informational.svg" alt="Platforms: macOS, Linux, Windows, WSL2, Raspberry Pi">
   <img src="https://img.shields.io/badge/api%20keys-on%20device-0-red.svg" alt="Zero API keys on device">
-  <img src="https://img.shields.io/badge/version-2.11.0-blueviolet.svg" alt="Version 2.11.0">
+  <img src="https://img.shields.io/badge/version-3.0.0-blueviolet.svg" alt="Version 3.0.0">
   <img src="https://img.shields.io/badge/tests-449%20incl.%20red--team-brightgreen.svg" alt="449 tests incl. security red-team suite">
 </p>
 
 ## Security and product status
 
-MONA's stated goal is to become the first open-source agent framework where the controls an enterprise deployment needs — device identity, tenant-scoped policy, fleet administration, release integrity, and a tamper-evident audit trail — are implemented and tested in the core, not left as an exercise for the operator.
+REMOTE's stated goal is to become the first open-source agent framework where the controls an enterprise deployment needs — device identity, tenant-scoped policy, fleet administration, release integrity, and a tamper-evident audit trail — are implemented and tested in the core, not left as an exercise for the operator.
 
 That is a goal, not a finished product. What is implemented and tested in this repository is listed in the capability-status table below. What remains external — hosted SSO/SAML/OIDC, SCIM provisioning, hardware-backed key storage, an independent security audit, and community adoption — is stated plainly rather than implied. Review the capability-status table and the threat model before production deployment.
 
@@ -109,7 +114,7 @@ Most AI assistants live in a chat window. They can write you a script —
 but they can't run it. They can explain a crash — but they can't look at
 your logs. They can suggest a cleanup — but they can't do it.
 
-MONA is an open-source agent that runs on your own computer — macOS,
+REMOTE is an open-source agent that runs on your own computer — macOS,
 Linux, Windows, WSL2 or a Raspberry Pi — and gives a model real, bounded
 access to the machine. You talk to it from the dashboard or the terminal;
 it reasons about the task, then acts: checks disk space, restarts a
@@ -122,16 +127,16 @@ surface — never a raw prompt-to-shell pipe. Scheduling, background jobs,
 skills, memory, and multi-agent orchestration are all built in.
 
 **The agent runs on your hardware. The model is your choice.** Default:
-the cloud you control at [agent.mona.expert](https://agent.mona.expert) —
+the cloud you control at [remoteagent.online](https://remoteagent.online) —
 your provider keys never touch the device, they sit in an AES-256-encrypted
 vault, and the device holds a single revocable token. Or **bring your own
-keys on-device** (`mona-agent provider set anthropic|openai|ollama`):
+keys on-device** (`remote-agent provider set anthropic|openai|ollama`):
 prompts never leave the machine, Ollama runs fully offline at $0, and
 any OpenAI-compatible endpoint (LM Studio, vLLM, OpenRouter) works too.
 
 ## Why it matters
 
-- **It acts, it doesn't just answer.** Chatbots produce words. MONA
+- **It acts, it doesn't just answer.** Chatbots produce words. REMOTE
   produces outcomes — on your machine, under your policy.
 - **Every step is visible.** Reasoning, tool calls, results, token usage,
   model, and latency are streamed live and recorded in an append-only
@@ -143,13 +148,13 @@ any OpenAI-compatible endpoint (LM Studio, vLLM, OpenRouter) works too.
 
 ## What you can build with it
 
-MONA is a small but real agent platform, and it is yours to build on. Here
+REMOTE is a small but real agent platform, and it is yours to build on. Here
 are some of the things people use it for:
 
 | You want… | You build it with… |
 |---|---|
 | An **autonomous agent** with a finish line | the `goal` tool — persistent multi-round objectives that keep going until genuinely complete, then stop |
-| **Home automation** on a Raspberry Pi | `mona-agent start`, `sysinfo`/`shell`/`notify`, and the SDK |
+| **Home automation** on a Raspberry Pi | `remote-agent start`, `sysinfo`/`shell`/`notify`, and the SDK |
 | **Computer automation** | tool-based control: commands, files, network, apps, browser — every step visible |
 | **Server and DevOps automation** | the `disk-health` and `briefing` skills, `jobs` for long-running commands, cron scheduling |
 | **Workflow automation** | the `workflow` tool — multi-phase pipelines with barriers and phase-to-phase context |
@@ -181,12 +186,12 @@ are some of the things people use it for:
 | **Goals** | persistent multi-round completion objectives (up to 16 rounds, resumable) |
 | **Workflows** | multi-phase pipelines (up to 8 phases × 6 tasks) with barriers and phase context |
 | **Dynamic plugins** | third-party tools hot-load via `defineTool()`, gated by your policy |
-| **MCP** | `mona-agent mcp` (stdio) / `--http` — expose every tool to other agents |
-| **Diagnostics** | `mona-agent doctor` one-shot health report; localhost `/healthz` + Prometheus `/metrics` |
+| **MCP** | `remote-agent mcp` (stdio) / `--http` — expose every tool to other agents |
+| **Diagnostics** | `remote-agent doctor` one-shot health report; localhost `/healthz` + Prometheus `/metrics` |
 | Skills | bundled `briefing`, `disk-health`, `web-research` — safe, read-only, composable |
 | Schedule runs | cron-style tasks from the dashboard |
 | Multi-device | agents claim tasks per device — never executed twice |
-| Self-update | `mona-agent update` / dashboard-driven version lifecycle |
+| Self-update | `remote-agent update` / dashboard-driven version lifecycle |
 
 ## How it works, tool by tool
 
@@ -200,8 +205,8 @@ process group is killed on timeout. Always-blocked patterns (`sudo`,
 `rm -rf /`, `mkfs`, pipe-to-shell downloads) never reach execution.
 
 ```bash
-mona-agent chat "how full is my disk and what can I safely clean?"
-mona-agent exec shell cmd="df -h /"
+remote-agent chat "how full is my disk and what can I safely clean?"
+remote-agent exec shell cmd="df -h /"
 ```
 
 ### Files and workspace
@@ -277,8 +282,8 @@ lines and the registry discovers, schema-checks, sandboxes and exposes it
 to any LLM provider dialect:
 
 ```js
-// your-tool/package.json → name: "mona-agent-tool-example"
-import { defineTool } from 'mona-agent';
+// your-tool/package.json → name: "remote-agent-tool-example"
+import { defineTool } from 'remote-agent';
 
 export default defineTool({
   name: 'fs.snapshot', version: '1.0.0',
@@ -296,8 +301,8 @@ never override a builtin or another plugin.
 
 ## Plugins — extend without forking
 
-Third-party tools ship as packages (`mona-agent-tool-*` or any directory
-on `MONA_TOOL_PATH`) and are **hot-loaded at runtime** — at daemon start
+Third-party tools ship as packages (`remote-agent-tool-*` or any directory
+on `REMOTE_TOOL_PATH`) and are **hot-loaded at runtime** — at daemon start
 and on demand, no restart. Plugins are inert until your local policy
 allows them with an explicit `"tools": {"my.tool": "allow"}` rule, and
 the daemon advertises loaded plugins to your control plane on connect.
@@ -306,7 +311,7 @@ the daemon advertises loaded plugins to your control plane on connect.
 ## Build on a core that says no — the policy engine
 
 The strongest thing you can build on is a core that refuses politely. The
-policy engine (`~/.mona-agent/policy.json`) is the **device-side
+policy engine (`~/.remote-agent/policy.json`) is the **device-side
 authority**: deny-by-default, first-match-wins rules with
 `when`-conditions, per-tool rate limits, daily budget caps, and presets
 (`strict` · `standard` · `permissive`). It is loaded once from local disk
@@ -314,18 +319,18 @@ at startup, and the cloud can never widen it — the cloud only ever
 *asks*, the device *decides*.
 
 ```bash
-mona-agent policy preset strict     # read-only agent
-mona-agent policy explain shell.run "df -h"   # why did that get allowed?
-mona-agent audit tail               # hash-chained, append-only
-mona-agent audit verify             # prove the trail was never tampered with
+remote-agent policy preset strict     # read-only agent
+remote-agent policy explain shell.run "df -h"   # why did that get allowed?
+remote-agent audit tail               # hash-chained, append-only
+remote-agent audit verify             # prove the trail was never tampered with
 ```
 
 The **capability dial** puts the same idea one command away:
 
 ```bash
-mona-agent mode set minimal   # read-only: no shell, no network writes
-mona-agent mode set standard  # balanced: core skills, shell/browser need approval
-mona-agent mode set full      # everything on + auto-start daemon (launchd/systemd)
+remote-agent mode set minimal   # read-only: no shell, no network writes
+remote-agent mode set standard  # balanced: core skills, shell/browser need approval
+remote-agent mode set full      # everything on + auto-start daemon (launchd/systemd)
 ```
 
 Modes write the local policy file and enable the matching skills. They
@@ -335,7 +340,7 @@ are a device-side authority — the cloud cannot change them.
 
 ```
 ┌────────────── Your device ──────────────┐   WSS / HTTPS   ┌──────────────────────────────┐
-│  mona-agent daemon                      │ ◄────────────► │  agent.mona.expert           │
+│  remote-agent daemon                      │ ◄────────────► │  remoteagent.online           │
 │  ├─ TaskLoop (bounded plan→act→reflect) │   tasks+steps  │  dashboard · API · vault     │
 │  ├─ Policy engine  ◄─ local, wins       │                │  AES-256 encrypted AI keys   │
 │  ├─ Tool registry (SDK + plugins)       │                │  cron runner · audit trail   │
@@ -347,14 +352,14 @@ are a device-side authority — the cloud cannot change them.
 - `apps/desktop` — the device agent: daemon, CLI, terminal UI, skills and
   the tool sandbox. Thin on purpose: it supplies the brain, the tools and
   the trace plumbing.
-- `packages/engine` (`@mona/engine`) — the agent core: the bounded
+- `packages/engine` (`@remote-agent/engine`) — the agent core: the bounded
   `TaskLoop`, policy engine, budget governor, memory + vector store,
   delegation (`runSubtasks`), goals (`GoalStore`), workflows
   (`runWorkflow`), durable run lifecycle (`RunStore`), device identity
   (`DeviceRegistry`), tenant-scoped policy (`PolicyRegistry`), JIT access,
   package lifecycle, fleet/admin composition, and SIEM export. **Zero
   runtime dependencies**, fully testable offline.
-- `packages/protocol` (`@mona/protocol`) — the versioned wire contract
+- `packages/protocol` (`@remote-agent/protocol`) — the versioned wire contract
   shared by the daemon and the gateway.
 - `docs/` — [architecture](docs/ARCHITECTURE.md), [policy
   grammar](docs/POLICY.md), [tools reference](docs/TOOLS.md), [compliance
@@ -371,17 +376,17 @@ your dashboard and recorded in the audit trail.
 
 ```bash
 # 1. Install the agent on your computer (macOS / Linux / WSL2 / Raspberry Pi)
-curl -fsSL https://agent.mona.expert/install.sh | bash
+curl -fsSL https://remoteagent.online/install.sh | bash
 
 # 2. Log in with a token from your dashboard (Devices → Generate token)
-mona-agent login
+remote-agent login
 
 # 3. Start it — headless daemon or live terminal dashboard
-mona-agent start        # background daemon
-mona-agent gui          # live terminal dashboard with scrollback
+remote-agent start        # background daemon
+remote-agent gui          # live terminal dashboard with scrollback
 ```
 
-Then open **https://agent.mona.expert/** — build an agent, chat with
+Then open **https://remoteagent.online/** — build an agent, chat with
 it, schedule it (cron), watch it work on your device, and revoke access
 any time with one click. Requires **Node.js 20+**. Installer,
 prerequisites and troubleshooting: [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
@@ -389,7 +394,7 @@ prerequisites and troubleshooting: [docs/GETTING-STARTED.md](docs/GETTING-STARTE
 The installer verifies release tarballs against the GitHub SHA256SUMS
 manifest and refuses to run as root. Containers: `docker compose up -d`
 (non-root, read-only rootfs, healthcheck). Diagnose anything with
-`mona-agent doctor`.
+`remote-agent doctor`.
 
 ## Security — the strongest claim, and the one we test hardest
 
@@ -399,7 +404,7 @@ manifest and refuses to run as root. Containers: `docker compose up -d`
   allowlist, workspace-confined files, SSRF-safe network (DNS resolved
   locally, CIDR-checked, metadata endpoints blocked).
 - **Every decision audited** — hash-chained append-only trail;
-  `mona-agent audit verify` proves integrity.
+  `remote-agent audit verify` proves integrity.
 - **Egress-only networking** — nothing listens for inbound connections;
   works behind NAT, firewalls and CGNAT.
 - **Bounded work** — step budgets, corrective nudges, forced conclusions.
@@ -410,60 +415,60 @@ manifest and refuses to run as root. Containers: `docker compose up -d`
 ## How it fits the agent landscape
 
 The agent space is crowded, and most of it is genuinely useful — here is
-where mona-agent sits, straight:
+where remote-agent sits, straight:
 
-- **AutoGPT** made autonomous, goal-driven agents famous. mona-agent
+- **AutoGPT** made autonomous, goal-driven agents famous. remote-agent
   shares the ambition and adds the two things AutoGPT-era projects
   struggled with: a **bounded, resumable goal loop** and a **local policy
   engine** that says no. The `goal` tool gives you the autonomous agent
   experience with a finish line.
 - **Computer use agents** (OpenAI's and Anthropic's tooling among them)
-  put AI in control of a machine. mona-agent does the same through a
+  put AI in control of a machine. remote-agent does the same through a
   **tool-based surface** — commands, files, network, apps — rather than
   pixel-watching, which keeps it fast, deterministic and auditable.
 - **Personal assistants like ChatGPT** live in the cloud and answer
-  questions. mona-agent is the assistant you can also ask to *do*
+  questions. remote-agent is the assistant you can also ask to *do*
   things on the machine you're standing in front of — chat from the
   dashboard, act on the device, every step streamed.
-- **Coding agents** (Copilot and friends) live inside the IDE. mona-agent
+- **Coding agents** (Copilot and friends) live inside the IDE. remote-agent
   is broader and simpler: it automates *your computer*, not your
   editor — though `git`, `npm` and test runners are perfectly within its
   reach.
 - **Agent frameworks** like LangChain and CrewAI are rich libraries for
-  building agent software. mona-agent is a smaller, dependency-free
+  building agent software. remote-agent is a smaller, dependency-free
   platform with a working policy gate, an SDK, and a running daemon — the
-  two are complementary: build on mona-agent for anything that touches a
+  two are complementary: build on remote-agent for anything that touches a
   real machine.
 - **MCP** is becoming the standard way to connect agents to tools.
-  mona-agent ships it: `mona-agent mcp` (stdio) or `mona-agent mcp
+  remote-agent ships it: `remote-agent mcp` (stdio) or `remote-agent mcp
   --http` exposes the whole tool registry to any Model Context Protocol
   client — policy-gated like every other call.
 
 ## Frequently asked questions
 
-**Is mona-agent free?** Yes — MIT licensed, free forever, one runtime
-dependency (`ws`). The agent.mona.expert cloud has a free tier.
+**Is remote-agent free?** Yes — MIT licensed, free forever, one runtime
+dependency (`ws`). The remoteagent.online cloud has a free tier.
 
 **Do I need an API key?** One: your device token from the dashboard. AI
 provider keys (OpenAI, Anthropic, …) live only in the cloud vault —
 never on your device. Or bring your own keys on-device with
-`mona-agent provider set <anthropic|openai|ollama>`.
+`remote-agent provider set <anthropic|openai|ollama>`.
 
 **Can it run on a Raspberry Pi?** Yes — any Node.js 20+ machine, headless
-(`mona-agent start`), small footprint. Perfect home-lab material.
+(`remote-agent start`), small footprint. Perfect home-lab material.
 
 **Does it work on Windows?** Yes, with native PowerShell/Node foreground
 execution and a Windows Service Control Manager adapter:
 
 ```powershell
-mona-agent start
-mona-agent daemon install   # elevated PowerShell
-mona-agent daemon status
-mona-agent daemon stop
-mona-agent daemon uninstall
+remote-agent start
+remote-agent daemon install   # elevated PowerShell
+remote-agent daemon status
+remote-agent daemon stop
+remote-agent daemon uninstall
 ```
 
-The service is named `MonaAgent`, uses delayed automatic start and restart
+The service is named `RemoteAgent`, uses delayed automatic start and restart
 recovery, and does not place API keys in its command line. Windows support is
 limited to Windows releases receiving active Microsoft security updates; EOL
 releases are not production targets. Native service operations have been
@@ -472,23 +477,23 @@ machine is macOS, so elevated SCM installation has not been executed locally.
 See [Windows support](docs/WINDOWS.md) for the exact boundary and remaining
 certification work.
 
-**Can it run fully offline?** Yes. `mona-agent provider set ollama` +
-`MONA_TRANSPORT=local` runs the brain on Ollama at
+**Can it run fully offline?** Yes. `remote-agent provider set ollama` +
+`REMOTE_TRANSPORT=local` runs the brain on Ollama at
 `http://127.0.0.1:11434` — no API key, $0 tokens, no prompt leaves the
 device. Anthropic and any OpenAI-compatible endpoint work the same way.
 
-**How do I update it?** `mona-agent update` — or the dashboard's Update
+**How do I update it?** `remote-agent update` — or the dashboard's Update
 button. The installer replaces the agent in place; credentials are
 untouched.
 
-**How do I uninstall?** `rm -rf ~/.mona-agent ~/.local/bin/mona-agent`.
+**How do I uninstall?** `rm -rf ~/.remote-agent ~/.local/bin/remote-agent`.
 
 **What does it send to the cloud?** Only to the cloud you logged into:
 device metrics, tool results, and your chat messages. Nothing to third
 parties. Details in [SECURITY.md](SECURITY.md).
 
 **Can the agent damage my machine?** The sandbox is layered and the
-policy engine is deny-by-default; start with `mona-agent policy preset
+policy engine is deny-by-default; start with `remote-agent policy preset
 strict` for a read-only agent, and treat it like any user with shell
 access: grant what you trust. Every decision is audited.
 
@@ -509,8 +514,8 @@ The [SPEC.md](docs/SPEC.md) is a working document. Shipped: the tool SDK
 (P2), policy rules engine (P3), delegation, goals, workflows, jobs,
 plugins, vector memory, secure mode, the BYO-key local model (P5 —
 Anthropic / OpenAI-compatible / Ollama), MCP transports (stdio + HTTP),
-`mona-agent doctor`, localhost `/healthz` + `/metrics`
-(`MONA_METRICS_PORT`), optional OTel spans, hardened systemd/launchd units,
+`remote-agent doctor`, localhost `/healthz` + `/metrics`
+(`REMOTE_METRICS_PORT`), optional OTel spans, hardened systemd/launchd units,
 native Windows Service Control Manager integration, Windows support preflight,
 Windows-safe executable resolution, credential-store abstraction, bounded
 replay protection for commands, bounded cancellable task queues, a

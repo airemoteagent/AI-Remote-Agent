@@ -1,10 +1,10 @@
 # Integrations
 
-mona-agent is designed to be glued into whatever you already run.
+remote-agent is designed to be glued into whatever you already run.
 
 ## Cloud REST API (client view)
 
-The daemon talks to the control plane at `https://agent.mona.expert` over
+The daemon talks to the control plane at `https://remoteagent.online` over
 HTTPS with Bearer auth. From a client perspective the endpoints are:
 
 | Method | Path | Purpose |
@@ -18,17 +18,17 @@ HTTPS with Bearer auth. From a client perspective the endpoints are:
 | POST | `/api/v1/agent/stats` | Device metrics snapshot (every 10 s) |
 
 The client picks the right base URL and paths automatically
-(`MONA_CLOUD` overrides the default).
+(`REMOTE_CLOUD` overrides the default).
 
 ## Boot persistence
 
 Keep the daemon alive across reboots:
 
-- **macOS** — install [examples/macos/com.monaexpert.agent.plist](../examples/macos/com.monaexpert.agent.plist)
+- **macOS** — install [examples/macos/com.remoteagent.agent.plist](../examples/macos/com.remoteagent.agent.plist)
   into `~/Library/LaunchAgents/` and `launchctl load` it.
-- **Linux (systemd)** — drop [examples/linux/mona-agent.service](../examples/linux/mona-agent.service)
-  into `~/.config/systemd/user/` and `systemctl --user enable --now mona-agent`.
-- **cron fallback** — `@reboot $HOME/.local/bin/mona-agent start`
+- **Linux (systemd)** — drop [examples/linux/remote-agent.service](../examples/linux/remote-agent.service)
+  into `~/.config/systemd/user/` and `systemctl --user enable --now remote-agent`.
+- **cron fallback** — `@reboot $HOME/.local/bin/remote-agent start`
 
 ## Scheduling
 
@@ -36,20 +36,20 @@ The agent plays nicely with cron (see [EXAMPLES.md](EXAMPLES.md) for
 recipes). One-liners:
 
 ```bash
-mona-agent chat "…"   # ask the cloud brain, answer in dashboard history
-mona-agent exec shell cmd="df -h"   # run an allowlisted command, stream output
-mona-agent policy preset standard    # require approval for shell/browser
-mona-agent audit verify              # verify the tamper-evident audit chain
+remote-agent chat "…"   # ask the cloud brain, answer in dashboard history
+remote-agent exec shell cmd="df -h"   # run an allowlisted command, stream output
+remote-agent policy preset standard    # require approval for shell/browser
+remote-agent audit verify              # verify the tamper-evident audit chain
 ```
 
 ## Health checks
 
-- **Interactive** — `mona-agent connect` runs the full connectivity test
+- **Interactive** — `remote-agent connect` runs the full connectivity test
   (health, auth, agent list) and prints the result.
-- **Scripted** — parse `mona-agent connect` exit code in your monitoring:
+- **Scripted** — parse `remote-agent connect` exit code in your monitoring:
 
 ```bash
-if mona-agent connect; then echo "agent ok"; else echo "agent degraded"; fi
+if remote-agent connect; then echo "agent ok"; else echo "agent degraded"; fi
 ```
 
 ## Webhooks & outbound calls
@@ -58,7 +58,7 @@ The `net` tool lets the agent call your webhooks, health endpoints or
 notification services (outbound HTTPS only):
 
 ```bash
-mona-agent exec "curl -fsS https://hc-ping.com/<your-uuid>"
+remote-agent exec "curl -fsS https://hc-ping.com/<your-uuid>"
 ```
 
 ## Building on the client

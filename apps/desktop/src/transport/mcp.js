@@ -1,6 +1,6 @@
 // transport/mcp.js — Model Context Protocol server (stdio, zero-dep).
 //
-// Exposes the mona-agent tool registry to any MCP client — Claude,
+// Exposes the remote-agent tool registry to any MCP client — Claude,
 // Cursor, other agents, other harnesses — over JSON-RPC 2.0, one
 // newline-delimited message per line on stdin/stdout.
 //
@@ -20,8 +20,8 @@ try {
   SERVER_VERSION = JSON.parse(readFileSync(join(__dirname, '..', '..', '..', '..', 'package.json'), 'utf8')).version || SERVER_VERSION;
 } catch { /* keep default */ }
 
-// ── mona args → JSON Schema ───────────────────────────────────────
-// mona tool args are freeform strings: "<type> — <description>".
+// ── remote-agent args → JSON Schema ───────────────────────────────────────
+// remote-agent tool args are freeform strings: "<type> — <description>".
 export function argsToSchema(args = {}) {
   const properties = {};
   for (const [key, raw] of Object.entries(args)) {
@@ -52,7 +52,7 @@ function jsonRpcError(id, code, message) {
 }
 
 /**
- * A stateless MCP request handler over a mona tool registry.
+ * A stateless MCP request handler over a remote-agent tool registry.
  * handle(msg) → response object (or null for notifications/unknown).
  */
 export function createMcpServer({ registry }) {
@@ -85,7 +85,7 @@ export function createMcpServer({ registry }) {
               result: {
                 protocolVersion: MCP_PROTOCOL_VERSION,
                 capabilities: { tools: {} },
-                serverInfo: { name: 'mona-agent', version: SERVER_VERSION },
+                serverInfo: { name: 'remote-agent', version: SERVER_VERSION },
               },
             };
 
@@ -161,7 +161,7 @@ export async function runMcpHttpServer({ registry, port = 4301, host = '127.0.0.
   const srv = http.createServer(async (req, res) => {
     if (req.method === 'GET' && (req.url === '/' || req.url === '/healthz')) {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ name: 'mona-agent', protocolVersion: MCP_PROTOCOL_VERSION, version: SERVER_VERSION, transport: 'http' }));
+      res.end(JSON.stringify({ name: 'remote-agent', protocolVersion: MCP_PROTOCOL_VERSION, version: SERVER_VERSION, transport: 'http' }));
       return;
     }
     if (req.method === 'POST' && req.url === '/mcp') {

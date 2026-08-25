@@ -1,12 +1,12 @@
-// Cloud API client — all LLM reasoning runs remotely on agent.mona.expert.
-// Supports both sngine-based (agent.mona.expert) and Docker-based platforms.
+// Cloud API client — all LLM reasoning runs remotely on remoteagent.online.
+// Supports both sngine-based (remoteagent.online) and Docker-based platforms.
 // This device sends prompts up and receives streamed reasoning back.
 // No LLM provider keys are ever stored or used locally.
 
 import { CLOUD, DEFAULTS } from './config.js';
 import { log } from './log.js';
 
-const UA = `mona-agent/${DEFAULTS.version}`;
+const UA = `remote-agent/${DEFAULTS.version}`;
 const P = CLOUD.paths; // platform-aware API paths
 
 // ── Generic API fetch ─────────────────────────────────────────────
@@ -16,7 +16,7 @@ async function apiFetch(path, { apiKey, method = 'POST', body, signal, headers: 
     'Authorization': `Bearer ${apiKey}`,
     'content-type':  'application/json',
     'user-agent':    UA,
-    'x-mona-agent':  DEFAULTS.version,
+    'x-remote-agent':  DEFAULTS.version,
     ...(extraHeaders || {}),
   };
 

@@ -1,6 +1,6 @@
 # Windows support
 
-Mona Agent supports Windows through a native Windows Service Control Manager adapter, foreground CLI execution, and a PowerShell installer. Windows support follows Microsoft's active security-support lifecycle: a release is supported only while Microsoft still provides security updates for it.
+Remote Agent supports Windows through a native Windows Service Control Manager adapter, foreground CLI execution, and a PowerShell installer. Windows support follows Microsoft's active security-support lifecycle: a release is supported only while Microsoft still provides security updates for it.
 
 ## Support matrix
 
@@ -24,8 +24,8 @@ Support claims are validated against Microsoft's published lifecycle data at rel
 ## Install
 
 ```powershell
-irm https://agent.mona.expert/install.ps1 | iex               # main branch
-irm https://agent.mona.expert/install.ps1 -OutFile install.ps1
+irm https://remoteagent.online/install.ps1 | iex               # main branch
+irm https://remoteagent.online/install.ps1 -OutFile install.ps1
 .\install.ps1 -Version v2.11.0                               # pinned release
 ```
 
@@ -34,24 +34,24 @@ Release-tag installs download the exact release asset and fail closed unless it 
 ## Native service
 
 ```powershell
-mona-agent start                 # foreground
-mona-agent daemon install        # elevated PowerShell → registers the SCM service
-mona-agent daemon status
-mona-agent daemon stop
-mona-agent daemon uninstall
+remote-agent start                 # foreground
+remote-agent daemon install        # elevated PowerShell → registers the SCM service
+remote-agent daemon status
+remote-agent daemon stop
+remote-agent daemon uninstall
 ```
 
-The service is named `MonaAgent`, uses automatic delayed start, and configures restart recovery. Uninstall removes only the service registration; user data, policy, audit, and credentials remain.
+The service is named `RemoteAgent`, uses automatic delayed start, and configures restart recovery. Uninstall removes only the service registration; user data, policy, audit, and credentials remain.
 
 ### Service account and credential scope
 
-- Default identity is **LocalSystem**. The service runs with a **different user profile** (`C:\Windows\System32\config\systemprofile`), so its `~\.mona-agent` data directory — credentials, policy, audit, memory, runs — is **separate** from the interactive user's directory.
-- Credential storage uses Windows DPAPI. Interactive runs use `DataProtectionScope.CurrentUser`; the service context (`MONA_SERVICE=windows-scm`) uses `DataProtectionScope.LocalMachine` so service-saved credentials are decryptable by the service.
+- Default identity is **LocalSystem**. The service runs with a **different user profile** (`C:\Windows\System32\config\systemprofile`), so its `~\.remote-agent` data directory — credentials, policy, audit, memory, runs — is **separate** from the interactive user's directory.
+- Credential storage uses Windows DPAPI. Interactive runs use `DataProtectionScope.CurrentUser`; the service context (`REMOTE_SERVICE=windows-scm`) uses `DataProtectionScope.LocalMachine` so service-saved credentials are decryptable by the service.
 - Consequences, by design:
   - credentials saved interactively are **not** readable by the LocalSystem service and vice versa;
   - policy is per data directory: install policy in the service profile before enabling remote tasks;
   - the audit trail is per data directory too.
-- The service adapter accepts `LocalSystem`, `NT AUTHORITY\LocalService`, `NT AUTHORITY\NetworkService`, or one named `DOMAIN\User` account. **Passwords are never passed on a command line.** If you need a named account, configure it through Service Manager, then keep DPAPI scope consistent (`MONA_SERVICE` selects LocalMachine automatically).
+- The service adapter accepts `LocalSystem`, `NT AUTHORITY\LocalService`, `NT AUTHORITY\NetworkService`, or one named `DOMAIN\User` account. **Passwords are never passed on a command line.** If you need a named account, configure it through Service Manager, then keep DPAPI scope consistent (`REMOTE_SERVICE` selects LocalMachine automatically).
 - To run the service as your interactive user instead, register it with your account via SCM and review DPAPI scope behavior in `credentials.js`.
 
 ## Security boundaries

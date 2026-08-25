@@ -6,7 +6,7 @@ import fs from 'node:fs';
 
 let VectorStore, MemoryStore, compactMessages, normaliseToolResult, embed, cosine;
 
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-vector-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-vector-'));
 
 before(async () => {
   ({ VectorStore, MemoryStore, compactMessages, normaliseToolResult, embed, cosine } = await import('../src/index.mjs'));

@@ -25,7 +25,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Policy } from '@mona/engine';
+import { Policy } from '@remote-agent/engine';
 import { log } from '../log.js';
 import {
   parseCommand, resolveBinary, blockedPatterns, safeEnvKeys, shellCfg,
@@ -280,7 +280,7 @@ export const jobs = {
 
         let cwd = process.cwd();
         if (args.cwd) cwd = path.resolve(String(args.cwd));
-        else if (process.env.MONA_WORKSPACE && fs.existsSync(process.env.MONA_WORKSPACE)) cwd = path.resolve(process.env.MONA_WORKSPACE);
+        else if (process.env.REMOTE_WORKSPACE && fs.existsSync(process.env.REMOTE_WORKSPACE)) cwd = path.resolve(process.env.REMOTE_WORKSPACE);
         if (!fs.existsSync(cwd)) cwd = process.cwd(); // never spawn into a missing dir
         const id = `job-${++seq}`;
         const job = {

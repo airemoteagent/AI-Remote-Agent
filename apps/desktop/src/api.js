@@ -1,16 +1,16 @@
-// HTTP API client — direct communication with the mona.expert control plane.
+// HTTP API client — direct communication with the remoteagent.online control plane.
 // Works alongside the WebSocket control channel. Use for:
 //   - Sending chat messages and getting responses
 //   - Executing tools directly  
 //   - Testing connectivity
 //   - Managing agent registration
 //
-// Supports both sngine-based (agent.mona.expert) and Docker-based platforms.
+// Supports both sngine-based (remoteagent.online) and Docker-based platforms.
 
 import { CLOUD, DEFAULTS } from './config.js';
 import { log } from './log.js';
 
-const UA = `mona-agent/${DEFAULTS.version}`;
+const UA = `remote-agent/${DEFAULTS.version}`;
 const P = CLOUD.paths; // platform-aware API paths
 
 // ── Generic fetch with auth ───────────────────────────────────────
@@ -20,7 +20,7 @@ async function apiFetch(apiKey, path, { method = 'GET', body, signal, headers: e
     'Authorization': `Bearer ${apiKey}`,
     'content-type': 'application/json',
     'user-agent': UA,
-    'x-mona-agent': DEFAULTS.version,
+    'x-remote-agent': DEFAULTS.version,
     ...(extraHeaders || {}),
   };
 

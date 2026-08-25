@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, statSyn
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 
-const DEFAULT_STORE = process.env.MONA_GOALS_STORE || join(homedir(), '.mona-agent', 'goals.json');
+const DEFAULT_STORE = process.env.REMOTE_GOALS_STORE || join(homedir(), '.remote-agent', 'goals.json');
 
 export const MAX_GOAL_ROUNDS = 16;
 export const MAX_OBJECTIVE = 1000;

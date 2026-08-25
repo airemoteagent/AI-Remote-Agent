@@ -1,4 +1,4 @@
-# mona-agent Documentation
+# remote-agent Documentation
 
 Open-source AI agent for macOS, Linux and WSL2. A secure, sandboxed
 background app and terminal UI — run commands, manage files, automate tasks and
@@ -19,8 +19,8 @@ stream live metrics from anywhere.
 - [Contributing](../CONTRIBUTING.md) — development setup
 - [examples/](../examples) — launchd & systemd units, health check script
 
-**Cloud:** [agent.mona.expert](https://agent.mona.expert) ·
-**Repo:** [MONAEXPERT/agent](https://github.com/MONAEXPERT/agent)
+**Cloud:** [remoteagent.online](https://remoteagent.online) ·
+**Repo:** [remoteagent-online/remote-agent](https://github.com/remoteagent-online/remote-agent)
 
 
 ## Additional Documents

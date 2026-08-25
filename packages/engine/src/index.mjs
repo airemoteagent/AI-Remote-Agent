@@ -1,4 +1,4 @@
-// mona engine — the lightweight agent core.
+// remote-agent engine — the lightweight agent core.
 //
 // Policy-as-code, budget governor, structured memory, bounded task loop.
 // Zero runtime dependencies; every piece is unit-testable offline.
@@ -8,6 +8,7 @@ export { PolicyRegistry, normalisePolicyRevision } from './policy-registry.js';
 export { Budget } from './budget.js';
 export { MemoryStore } from './memory.js';
 export { TaskLoop, parseBrainReply, compactMessages, normaliseToolResult } from './loop.js';
+export { ToolCache, DEFAULT_TOOL_CACHE_PATH } from './tool-cache.js';
 export { runSubtasks, buildSubSystemPrompt, MAX_SUBTASKS, MAX_SUB_PROMPT, MAX_SUB_STEPS } from './delegate.js';
 export { runWorkflow, validatePhases, buildPhaseContext, MAX_PHASES } from './workflow.js';
 export { GoalStore, parseGoalMarker, buildGoalRoundPrompt, goalRoundTaskText, normaliseGoal, MAX_GOAL_ROUNDS, MAX_OBJECTIVE } from './goal.js';

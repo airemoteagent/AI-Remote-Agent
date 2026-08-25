@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# mona-agent Windows installer.
+# remote-agent Windows installer.
 #
 # Usage:
-#   irm https://agent.mona.expert/install.ps1 | iex
+#   irm https://remoteagent.online/install.ps1 | iex
 #   ./install.ps1 -Version v2.11.0
 #
 # Releases: downloads the exact GitHub release asset and verifies it against
@@ -11,13 +11,13 @@
 [CmdletBinding()]
 param(
   [string]$Version = '',
-  [string]$InstallDir = "$HOME\.mona-agent",
+  [string]$InstallDir = "$HOME\.remote-agent",
   [switch]$DryRun
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Repo = 'MONAEXPERT/agent'
+$Repo = 'remoteagent-online/remote-agent'
 if ($DryRun) { Write-Host "DRY RUN — nothing will be changed" }
 
 $node = Get-Command node.exe -ErrorAction SilentlyContinue
@@ -25,13 +25,13 @@ if (-not $node) { throw 'Node.js 20+ is required (https://nodejs.org)' }
 $major = & node.exe -p "process.versions.node.split('.')[0]"
 if ([int]$major -lt 20) { throw "Node.js 20+ required (found $major)" }
 
-$tmp = Join-Path ([IO.Path]::GetTempPath()) ("mona-agent-" + [guid]::NewGuid().ToString('N'))
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ("remote-agent-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp | Out-Null
 try {
   $Tarball = ''
   $ShaUrl = ''
   if ($Version) {
-    $Tarball = "mona-agent-$Version.tar.gz"
+    $Tarball = "remote-agent-$Version.tar.gz"
     $Url = "https://github.com/$Repo/releases/download/$Version/$Tarball"
     $ShaUrl = "https://github.com/$Repo/releases/download/$Version/SHA256SUMS"
   } else {
@@ -46,7 +46,7 @@ try {
   Invoke-WebRequest -Uri $Url -OutFile $Archive
 
   if ($Version) {
-    if ($env:MONA_REQUIRE_CHECKSUM -and $env:MONA_REQUIRE_CHECKSUM -ne '1') { throw 'Refusing insecure release install: MONA_REQUIRE_CHECKSUM must remain 1' }
+    if ($env:REMOTE_REQUIRE_CHECKSUM -and $env:REMOTE_REQUIRE_CHECKSUM -ne '1') { throw 'Refusing insecure release install: REMOTE_REQUIRE_CHECKSUM must remain 1' }
     Invoke-WebRequest -Uri $ShaUrl -OutFile (Join-Path $tmp 'SHA256SUMS')
     $lines = Get-Content (Join-Path $tmp 'SHA256SUMS')
     $matches = @($lines | Where-Object { $_ -match "^[0-9a-fA-F]{64}\s+\*?$([regex]::Escape($Tarball))$" })
@@ -80,8 +80,8 @@ try {
   New-Item -ItemType Directory -Path $agentDir -Force | Out-Null
   Copy-Item -Recurse -Force (Join-Path $tmp 'src\*') $agentDir
 
-  $bin = Join-Path $agentDir 'apps\desktop\bin\mona-agent.js'
-  $link = Join-Path $HOME '.local\bin\mona-agent.cmd'
+  $bin = Join-Path $agentDir 'apps\desktop\bin\remote-agent.js'
+  $link = Join-Path $HOME '.local\bin\remote-agent.cmd'
   New-Item -ItemType Directory -Path (Split-Path $link) -Force | Out-Null
   "@echo off`r`nnode `"$bin`" %*" | Set-Content -Encoding ASCII $link
   Write-Host "Installed to $agentDir"

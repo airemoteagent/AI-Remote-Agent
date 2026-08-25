@@ -11,7 +11,7 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { auditWrite } from './policy.js';
 
-const DEFAULT_STORE = process.env.MONA_UPGRADES_STORE || join(homedir(), '.mona-agent', 'upgrades.json');
+const DEFAULT_STORE = process.env.REMOTE_UPGRADES_STORE || join(homedir(), '.remote-agent', 'upgrades.json');
 const MAX_UPGRADES = 500;
 
 export const UPGRADE_STATES = Object.freeze(['pending', 'canary', 'rollout', 'complete', 'rolled_back', 'failed']);

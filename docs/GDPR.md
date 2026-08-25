@@ -1,12 +1,12 @@
 # GDPR — Privacy & Data Processing
 
-How mona.expert processes personal data, and how the open-source client
+How remoteagent.online processes personal data, and how the open-source client
 minimises it. This document supports both end-user transparency
 (Art. 13/14) and customer due diligence (Art. 28 annex-ready).
 
 ## Roles
 
-- **mona.expert** — data controller for account data; data processor
+- **remoteagent.online** — data controller for account data; data processor
   where customers operate the platform on their own behalf.
 - **You (the user)** — controller of your own device and of the
   commands you issue.
@@ -22,8 +22,8 @@ minimises it. This document supports both end-user transparency
 
 ## Data minimisation by design
 
-- **The device stores no provider keys.** Only a mona.expert token
-  lives locally (`~/.mona-agent/credentials.json`, mode 0600).
+- **The device stores no provider keys.** Only a remoteagent.online token
+  lives locally (`~/.remote-agent/credentials.json`, mode 0600).
 - **Telemetry is system metrics only** — no keystrokes, no screen
   content, no file contents. Command results are sent only because you
   asked the agent to run them.
@@ -40,13 +40,13 @@ minimises it. This document supports both end-user transparency
   trash-based deletes
 - Local policy is authoritative — the control plane can never widen it
 - Full audit trail of every action (cloud) + hash-chained, tamper-evident
-  local decision log on each device (`mona-agent audit verify`)
+  local decision log on each device (`remote-agent audit verify`)
 
 ## Data subject rights
 
 - **Access / rectification / erasure** — the dashboard shows your
   agents, conversations and audit entries; delete them there or write to
-  `privacy@mona.expert`.
+  `privacy@remoteagent.online`.
 - **Portability** — conversations and settings export via API.
 - **Objection / restriction** — stop the agent; processing stops
   (device disconnects, no further collection).
@@ -54,8 +54,8 @@ minimises it. This document supports both end-user transparency
 ## International transfers
 
 - Processing and storage occur in the EU (Hetzner/Hostinger EU data
-  centres via the mona.expert infrastructure). No data is transferred to
-  third countries by mona.expert itself.
+  centres via the remoteagent.online infrastructure). No data is transferred to
+  third countries by remoteagent.online itself.
 - AI provider calls (OpenAI, Anthropic, Google, …) are made **with your
   own keys**, under the terms you hold with those providers.
 
@@ -63,16 +63,16 @@ minimises it. This document supports both end-user transparency
 
 | Sub-processor | Purpose |
 |---|---|
-| Hosting (EU) | Infrastructure for the mona.expert cloud |
+| Hosting (EU) | Infrastructure for the remoteagent.online cloud |
 | AI providers (your keys) | Model inference on your instruction |
 
 ## DPIA note
 
-mona-agent processes telemetry and command output, not special-category
+remote-agent processes telemetry and command output, not special-category
 data. For typical use a DPIA is not required; a template is available on
-request for enterprise deployments (`compliance@mona.expert`).
+request for enterprise deployments (`compliance@remoteagent.online`).
 
 ## DPA
 
 A data-processing agreement annex (Art. 28) is available for business
-customers on request: `compliance@mona.expert`.
+customers on request: `compliance@remoteagent.online`.

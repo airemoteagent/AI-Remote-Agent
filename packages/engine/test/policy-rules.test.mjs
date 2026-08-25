@@ -10,8 +10,8 @@ import { join } from 'node:path';
 
 const { Policy, globToRegExp, ipInCidr, pathWithin } = await import('../src/policy.js');
 
-const WS = mkdtempSync(join(tmpdir(), 'mona-policy-ws-'));
-const AUDIT = join(mkdtempSync(join(tmpdir(), 'mona-policy-')), 'audit.jsonl');
+const WS = mkdtempSync(join(tmpdir(), 'remote-agent-policy-ws-'));
+const AUDIT = join(mkdtempSync(join(tmpdir(), 'remote-agent-policy-')), 'audit.jsonl');
 mkdirSync(join(WS, 'sub'), { recursive: true });
 writeFileSync(join(WS, 'ok.txt'), 'ok');
 writeFileSync(join(WS, 'sub', 'x.txt'), 'x');
@@ -51,7 +51,7 @@ describe('CIDR + path matching', () => {
     assert.ok(pathWithin(join(WS, 'sub', 'x.txt'), [WS]));
     assert.ok(!pathWithin('/etc/passwd', [WS]));
     // prefix-confusable: /tmp/ws-evil must NOT match workspace /tmp/ws
-    assert.ok(!pathWithin('/tmp/mona-policy-ws-X-evil/../etc/passwd', [WS]));
+    assert.ok(!pathWithin('/tmp/remote-agent-policy-ws-X-evil/../etc/passwd', [WS]));
     // symlink escape
     assert.ok(!pathWithin(join(WS, 'evil-link'), [WS]));
   });

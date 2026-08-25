@@ -2,7 +2,7 @@
 // descriptors. Replaces the ad-hoc BUILTIN array with a registry that:
 //
 //   - discovers tools from three sources: builtins, node_modules
-//     packages matching mona-agent-tool-*, and configured paths
+//     packages matching remote-agent-tool-*, and configured paths
 //   - treats namespace collisions as a hard startup error (never a
 //     silent override)
 //   - enforces timeouts + policy + concurrency on every invocation
@@ -12,7 +12,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { log } from '../log.js';
-import { Policy, RunStore } from '@mona/engine';
+import { Policy, RunStore } from '@remote-agent/engine';
 import { defineTool, isTool } from './define.js';
 import { sysinfo } from './sysinfo.js';
 import { shell } from './shell.js';
@@ -154,7 +154,7 @@ export class ToolRegistry {
       const ctx = {
         signal: controller.signal,
         logger: log,
-        workspace: process.env.MONA_WORKSPACE || process.cwd(),
+        workspace: process.env.REMOTE_WORKSPACE || process.cwd(),
         emit: () => {},
         invoke: (n, i) => this.run(n, i, overrides),
         secrets: { get: async () => undefined },
@@ -195,8 +195,8 @@ export class ToolRegistry {
 
 /**
  * Discover external tool packages:
- *  - node_modules/mona-agent-tool-* with a "monaAgent.tools" manifest
- *  - extra paths from MONA_TOOL_PATH (comma separated)
+ *  - node_modules/remote-agent-tool-* with a "remoteAgent.tools" manifest
+ *  - extra paths from REMOTE_TOOL_PATH (comma separated)
  * Returns descriptors (module default export or named tools).
  * @returns {Promise<any[]>}
  */
@@ -207,14 +207,14 @@ export async function discoverExternalTools(extraPaths = []) {
   const loadDir = async (dir) => {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir)) {
-      if (!entry.startsWith('mona-agent-tool-')) continue;
+      if (!entry.startsWith('remote-agent-tool-')) continue;
       if (seen.has(entry)) continue;
       seen.add(entry);
       const pkgPath = join(dir, entry, 'package.json');
       try {
         if (!existsSync(pkgPath)) continue;
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-        if (!pkg.monaAgent?.tools) continue;
+        if (!pkg.remoteAgent?.tools) continue;
         const mod = await awaitImport(join(dir, entry, pkg.main || 'index.js'));
         const tools = Array.isArray(mod?.default) ? mod.default : mod?.default ? [mod.default] : [];
         for (const t of tools) if (isTool(t)) found.push(t);

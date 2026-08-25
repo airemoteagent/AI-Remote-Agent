@@ -1,6 +1,6 @@
 // Policy-as-code: user-editable rules that govern what the agent may do.
 //
-// Loaded from MONA_POLICY (path to a JSON file) or ~/.mona-agent/policy.json.
+// Loaded from REMOTE_POLICY (path to a JSON file) or ~/.remote-agent/policy.json.
 // If neither exists, a safe default policy applies (allow known tools,
 // block destructive shell patterns, require confirmation on dangerous ones).
 //
@@ -21,17 +21,17 @@
 //   "audit":   true                                          // write decisions to audit log
 // }
 //
-// Audit log: ~/.mona-agent/audit.jsonl (MONA_AUDIT to override). Hash-chained
+// Audit log: ~/.remote-agent/audit.jsonl (REMOTE_AUDIT to override). Hash-chained
 // (h_n = sha256(h_{n-1} || entry)), append-only. Verify with
-// `mona-agent audit verify`.
+// `remote-agent audit verify`.
 
 import { createHash } from 'node:crypto';
 import { readFileSync, existsSync, appendFileSync, mkdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 
-const DEFAULT_POLICY_PATH = process.env.MONA_POLICY || join(homedir(), '.mona-agent', 'policy.json');
-const DEFAULT_AUDIT_PATH  = process.env.MONA_AUDIT  || join(homedir(), '.mona-agent', 'audit.jsonl');
+const DEFAULT_POLICY_PATH = process.env.REMOTE_POLICY || join(homedir(), '.remote-agent', 'policy.json');
+const DEFAULT_AUDIT_PATH  = process.env.REMOTE_AUDIT  || join(homedir(), '.remote-agent', 'audit.jsonl');
 
 // Destructive shell patterns that are always denied, regardless of policy.
 const BASE_DENY = [
@@ -67,7 +67,7 @@ const VALID_TIERS = new Set(['allow', 'deny', 'confirm', 'prompt']);
 //   "rules": [
 //     { "tool": "sysinfo.*", "effect": "allow" },
 //     { "tool": "fs.read", "effect": "allow",
-//       "when": { "path": { "within": ["~/.mona-agent/workspace"] } } },
+//       "when": { "path": { "within": ["~/.remote-agent/workspace"] } } },
 //     { "tool": "shell.run", "effect": "prompt",
 //       "when": { "argv0": { "in": ["git", "npm", "ls"] } } },
 //     { "tool": "net.fetch", "effect": "allow",
@@ -370,9 +370,9 @@ export class Policy {
     this.rules = Array.isArray(r.rules) ? r.rules : null;
     this.defaultEffect = r.default === 'allow' ? 'allow' : 'deny';
 
-    // Deprecated env fallback: MONA_SHELL_UNSAFE=1 still works for one minor
+    // Deprecated env fallback: REMOTE_SHELL_UNSAFE=1 still works for one minor
     // version but is superseded by policy `shell.unsafe`. Prefer the policy file.
-    if (!this.shellUnsafe && process.env.MONA_SHELL_UNSAFE === '1') {
+    if (!this.shellUnsafe && process.env.REMOTE_SHELL_UNSAFE === '1') {
       this.shellUnsafe = true;
       this._unsafeSource = 'env';
     } else {
@@ -494,7 +494,7 @@ export class Policy {
     return { allowed: true, tier: 'allow', reason: '' };
   }
 
-  /** Explain why a call would be allowed/denied (for `mona-agent policy explain`).
+  /** Explain why a call would be allowed/denied (for `remote-agent policy explain`).
    *  Rules array wins; legacy tier map fallback preserved. */
   explain(name, args = {}) {
     if (this.rules) {

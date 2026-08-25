@@ -1,4 +1,4 @@
-// mona-agent public SDK entry — the API contract.
+// remote-agent public SDK entry — the API contract.
 //
 // Anything exported here is stable and documented (types/index.d.ts).
 // Anything else in the package is internal and may change. See

@@ -10,7 +10,7 @@
 // The runner is injected by the daemon (configureWorkflowRunner()); the tool
 // validates and dispatches, and returns structured results per phase.
 
-import { MAX_PHASES } from '@mona/engine';
+import { MAX_PHASES } from '@remote-agent/engine';
 
 let runner = null; // async ({ phases }) => { status, phases, results }
 

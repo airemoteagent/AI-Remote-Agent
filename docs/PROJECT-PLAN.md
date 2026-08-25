@@ -1,4 +1,4 @@
-# Mona Agent Project Plan
+# Remote Agent Project Plan
 
 This is the execution bridge between [`GOALS.md`](GOALS.md) (strategy) and [`SPEC.md`](SPEC.md) (engineering specification). It is intentionally honest: `planned` is not `shipped`.
 

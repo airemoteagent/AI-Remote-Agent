@@ -5,15 +5,16 @@
 // cacheable, and net POST is explicitly excluded (it mutates remote state).
 //
 // Key = tool + sha1(canonical args) — args are sorted so key order never
-// matters. TTL per tool; size-capped with oldest-first eviction. Persisted to
-// ~/.mona-agent/tool-cache.json (0600) so hits survive restarts.
+// matters. TTL per tool; size-capped with oldest-first eviction. In-memory by
+// default; pass storePath (the daemon uses ~/.remote-agent/tool-cache.json, 0600)
+// to persist hits across restarts.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 
-const DEFAULT_STORE = process.env.MONA_TOOL_CACHE || join(homedir(), '.mona-agent', 'tool-cache.json');
+export const DEFAULT_TOOL_CACHE_PATH = process.env.REMOTE_TOOL_CACHE || join(homedir(), '.remote-agent', 'tool-cache.json');
 const MAX_ENTRIES = 200;
 
 const CACHEABLE = new Set(['sysinfo', 'web', 'net', 'files']);
@@ -47,7 +48,9 @@ function hashString(s) {
 }
 
 export class ToolCache {
-  constructor({ storePath = DEFAULT_STORE, maxEntries = MAX_ENTRIES } = {}) {
+  // In-memory by default (safe for tests / short-lived callers). Pass an
+  // explicit storePath to persist across runs (the daemon does this).
+  constructor({ storePath = null, maxEntries = MAX_ENTRIES } = {}) {
     this.storePath = storePath;
     this.maxEntries = maxEntries;
     this.entries = new Map();
@@ -55,6 +58,7 @@ export class ToolCache {
   }
 
   #load() {
+    if (!this.storePath) return;
     try {
       if (existsSync(this.storePath)) {
         const raw = JSON.parse(readFileSync(this.storePath, 'utf8'));
@@ -68,6 +72,7 @@ export class ToolCache {
   }
 
   #save() {
+    if (!this.storePath) return;
     try {
       mkdirSync(dirname(this.storePath), { recursive: true });
       writeFileSync(this.storePath, JSON.stringify({ entries: Array.from(this.entries.values()) }, null, 2), { mode: 0o600 });

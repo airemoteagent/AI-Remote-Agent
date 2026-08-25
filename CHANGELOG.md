@@ -1,6 +1,22 @@
 # Changelog
 
-All notable changes to mona-agent are documented here. The format is
+## [3.0.0] - 2026-08-25 — Remote Agent Online (rebrand + brain upgrades)
+
+Rebranded from mona-agent to **remote-agent** as its own product, streaming to remoteagent.online.
+
+### Changed
+- Renamed the whole surface: remote-agent CLI/binary, ~/.remote-agent config dir, REMOTE_* env vars, @remote-agent/* npm scope, default cloud https://remoteagent.online.
+- Version bump 2.11.0 -> 3.0.0.
+
+### Added (shipped brain upgrades, now the default)
+- Unrestricted audited shell (tier unsafe -> allowed + audited).
+- Cross-run tool-result cache (sysinfo/web/net/files read-only), with write/delete invalidation.
+- files tool tilde path expansion.
+- Outcome-feedback learning memory (learnFromRun success/failure).
+- Server-side prompt-prefix caching + provider-aware cache-token accounting.
+
+
+All notable changes to remote-agent are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
@@ -21,26 +37,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.11.0] — 2026-08-17
 
 ### Added
-- **`mona-agent doctor`** (`apps/desktop/src/doctor.js`): one-shot local
-  diagnostics — node version, ~/.mona-agent state, credentials, policy
+- **`remote-agent doctor`** (`apps/desktop/src/doctor.js`): one-shot local
+  diagnostics — node version, ~/.remote-agent state, credentials, policy
   parse, audit-chain verify, workspace, BYO provider, control-plane
   reachability, installed version, update availability. Non-zero exit on
   any failed check.
 - **Localhost health + metrics** (`apps/desktop/src/metrics.js`):
-  `MONA_METRICS_PORT` starts `/healthz` and Prometheus-text `/metrics`
+  `REMOTE_METRICS_PORT` starts `/healthz` and Prometheus-text `/metrics`
   bound to 127.0.0.1 only — systemd/Docker healthchecks and local
   scrapers; the daemon stays egress-only.
-- **HTTP MCP transport**: `mona-agent mcp --http [--port N]` — POST /mcp
+- **HTTP MCP transport**: `remote-agent mcp --http [--port N]` — POST /mcp
   JSON-RPC + GET info/healthz, localhost-bound.
 - **Optional OTel spans** (`apps/desktop/src/otel.js`): `task.run` and
   `tool.*` spans when `@opentelemetry/api` is installed; complete no-op
   otherwise (no new dependencies).
-- **Hardened systemd unit** (via `mona-agent daemon install`):
+- **Hardened systemd unit** (via `remote-agent daemon install`):
   NoNewPrivileges, PrivateTmp, ProtectSystem=strict,
-  ProtectHome=read-only + ReadWritePaths=%h/.mona-agent, MemoryMax=1G.
+  ProtectHome=read-only + ReadWritePaths=%h/.remote-agent, MemoryMax=1G.
 - **Installer hardening** (`apps/desktop/install.sh`): `--version <tag>`
   pins a release, SHA-256 verification against the release SHA256SUMS
-  asset (`MONA_REQUIRE_CHECKSUM=1` hard-fails), extracted-version check,
+  asset (`REMOTE_REQUIRE_CHECKSUM=1` hard-fails), extracted-version check,
   `--dry-run`, refuses root unless `--allow-root`.
 - **Docker**: non-root multi-stage `Dockerfile` (HEALTHCHECK on
   /healthz) + `docker-compose.yml` (read-only rootfs, tmpfs, persistent
@@ -61,19 +77,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   to the engine's `{input, output, total, costUsd}` shape; per-model
   price tables (overridable per provider) feed the budget governor, so
   BYO runs get the same cost governance as vault runs. Config in
-  `~/.mona-agent/provider.json` (0600) with env fallbacks; the cloud can
+  `~/.remote-agent/provider.json` (0600) with env fallbacks; the cloud can
   never read it.
-- **`mona-agent provider` CLI**: `set <anthropic|openai|ollama>
+- **`remote-agent provider` CLI**: `set <anthropic|openai|ollama>
   [--key|--url|--model]`, `status` (masked key, model, pricing),
   `unset`, `test` (one-shot smoke call).
-- **`MONA_TRANSPORT=local`** — fail-fast local-only brain mode; the
+- **`REMOTE_TRANSPORT=local`** — fail-fast local-only brain mode; the
   daemon refuses to start when no provider is configured.
 - **Daemon brain dispatch** (`agent.js#brainThink`): every think — main
   loop, forced conclusion, verification pass, delegate sub-agents and
   workflow sub-agents — routes through the BYO provider when configured;
   prompts never leave the device. `usageTotals` now carry `costUsd`
   through to the run trace and audit log.
-- **MCP transport** (`apps/desktop/src/transport/mcp.js` + `mona-agent
+- **MCP transport** (`apps/desktop/src/transport/mcp.js` + `remote-agent
   mcp`): Model Context Protocol stdio server (JSON-RPC 2.0) exposing the
   tool registry to any MCP client — `initialize`, `tools/list`
   (freeform args → JSON Schema), `tools/call`, `ping`. Every call passes
@@ -114,8 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   brain's context window. Visible via `task.compact` step + audit entry.
 - **Local task audit**: every task event (start / think / tool / result /
   denied / compact / verify / answer / error) is written to the same
-  hash-chained `~/.mona-agent/audit.jsonl` used for policy decisions —
-  `mona-agent audit tail|verify` now covers the full task trail.
+  hash-chained `~/.remote-agent/audit.jsonl` used for policy decisions —
+  `remote-agent audit tail|verify` now covers the full task trail.
 - **`jobs` tool — background command management** (`apps/desktop/src/tools/jobs.js`):
   long-running work no longer blocks the task loop or dies with the 15s shell
   timeout. `jobs start <cmd> [cwd]` returns a job id + pid immediately,
@@ -143,7 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   round runs as a normal queued task (serial, never interleaving with user
   tasks) seeded with the objective + every previous round's summary, and
   must end with a `GOAL_COMPLETE: true|false` marker. `goal status/list/
-  resume/abort` manage it; goals persist to `~/.mona-agent/goals.json`
+  resume/abort` manage it; goals persist to `~/.remote-agent/goals.json`
   (0600, atomic writes, per-path in-process singleton so the tool and the
   daemon always agree) and survive daemon restarts. Round cap reached
   without completion → `blocked`.
@@ -159,7 +175,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   place (`status: partial`) and never abort the workflow.
 - **`plugin` tool + dynamic plugin registry** (`apps/desktop/src/tools/plugin.js`,
   `apps/desktop/src/tools/index.js`): third-party tools ship as packages
-  (`mona-agent-tool-*` or any dir on `MONA_TOOL_PATH`) exporting
+  (`remote-agent-tool-*` or any dir on `REMOTE_TOOL_PATH`) exporting
   `defineTool()` descriptors, and are **hot-loaded at runtime** — at daemon
   start and on demand. The runtime registry now accepts descriptors (lifted
   to the legacy shape), reports per-tool source (`builtin`/`plugin`) and
@@ -190,7 +206,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the agent version + live badge + Update button.
 
 ### Fixed
-- `mona-agent update` now verifies the extracted archive version matches
+- `remote-agent update` now verifies the extracted archive version matches
   the requested tag (guards against stale GitHub CDN archives).
 - Pre-existing broken `open` allowlist test (duplicate block + wrong
   export) — suite green again.
@@ -199,9 +215,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Version lifecycle foundation: single source of truth (`src/version.js`
-  reads root `package.json`), `mona-agent version`, `mona-agent update
+  reads root `package.json`), `remote-agent version`, `remote-agent update
   [check]` (GitHub release feed with tag fallback, self-update with
-  rollback on failure, lifecycle record `~/.mona-agent/update.json`).
+  rollback on failure, lifecycle record `~/.remote-agent/update.json`).
 - Dashboard `update` + `version` commands over the control channel.
 
 ## [2.8.1] — 2026-08-16
@@ -215,14 +231,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Security
 - argv shell: quote-aware parsing, `execFile/spawn shell:false`, realpath
   allowlist per segment, scrubbed child env, process-group kill on timeout,
-  redirects/`$()`/backticks rejected. `MONA_SHELL_UNSAFE` env var
+  redirects/`$()`/backticks rejected. `REMOTE_SHELL_UNSAFE` env var
   deprecated → policy `shell.unsafe` (audited).
 - net: DNS resolved by agent, every address CIDR-checked, connect-to-IP +
   Host/SNI, redirect revalidation (max 5), metadata endpoints blocked,
   bounded body reads.
 - files: O_NOFOLLOW + fstat TOCTOU guard, special-file refusal, trash-based
   delete, try/catch contract.
-- policy v2: hash-chained append-only audit log (`mona-agent audit
+- policy v2: hash-chained append-only audit log (`remote-agent audit
   tail|verify`), per-tool rate limits, strict/standard/permissive presets,
   `explain()`, registry-wide policy choke point.
 

@@ -94,7 +94,7 @@ Build reproducible fixtures for disk pressure, a failed service, expiring certif
 Split the current high-change modules into bounded components without behavior changes:
 
 - task orchestration, context construction, and audit reporting from `apps/desktop/src/agent.js`;
-- CLI command handlers from `apps/desktop/bin/mona-agent.js`;
+- CLI command handlers from `apps/desktop/bin/remote-agent.js`;
 - state/rendering from `apps/desktop/src/tui.js`;
 - parser/execution/policy portions of `apps/desktop/src/tools/shell.js`;
 - validation/matching/decision portions of `packages/engine/src/policy.js`.

@@ -8,15 +8,15 @@
 // agent knows the skill exists and how to use it; skill tools become
 // callable through the tool registry.
 //
-// CLI: mona-agent skills list | enable <name> | disable <name> | install
-// Dir: ~/.mona-agent/skills/  (override with MONA_SKILLS_DIR)
+// CLI: remote-agent skills list | enable <name> | disable <name> | install
+// Dir: ~/.remote-agent/skills/  (override with REMOTE_SKILLS_DIR)
 
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, cpSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { loadConfig, saveConfig } from './config.js';
 
-export const SKILLS_DIR = process.env.MONA_SKILLS_DIR || join(homedir(), '.mona-agent', 'skills');
+export const SKILLS_DIR = process.env.REMOTE_SKILLS_DIR || join(homedir(), '.remote-agent', 'skills');
 // Skills bundled with the agent (installed on first run / `skills install`)
 const BUNDLED = new URL('../skills/', import.meta.url);
 

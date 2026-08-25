@@ -12,7 +12,7 @@ import type {
   PolicyDecision,
   Transport,
   Session,
-  MonaAgentSDK,
+  RemoteAgentSDK,
   JsonSchema,
 } from './index.js';
 
@@ -59,7 +59,7 @@ declare const session: Session;
 expectType<'queued' | 'running' | 'done' | 'failed'>(session.status);
 
 // ── SDK entry ─────────────────────────────────────────────────────
-declare const sdk: MonaAgentSDK;
+declare const sdk: RemoteAgentSDK;
 expectType<Tool>(sdk.defineTool(opts));
 expectType<ToolRegistry>(sdk.createRegistry());
 

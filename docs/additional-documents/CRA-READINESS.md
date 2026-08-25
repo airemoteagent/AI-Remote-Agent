@@ -1,16 +1,16 @@
 # EU Cyber Resilience Act (CRA) Readiness
 
 The Cyber Resilience Act (EU) 2024/2847 imposes cybersecurity requirements on
-products with digital elements sold in the EU. This document maps mona-agent's
+products with digital elements sold in the EU. This document maps remote-agent's
 client architecture to the CRA's essential requirements and manufacturer
 obligations.
 
 ## Product classification
 
-mona-agent (this repository) is **open-source software** distributed free of
+remote-agent (this repository) is **open-source software** distributed free of
 charge as the client for a cloud service. Under CRA Article 3, open-source
 software developed outside a commercial activity is exempt; the commercial
-**cloud service** (mona.expert) is the product with digital elements and the
+**cloud service** (remoteagent.online) is the product with digital elements and the
 obligations below are documented so operators can show readiness end-to-end.
 
 ## Essential requirements (Annex I) — how they are met

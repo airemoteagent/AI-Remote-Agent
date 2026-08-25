@@ -1,7 +1,7 @@
 // Web research — search the web and fetch page content.
 // Pure Node, no external dependencies, multi-OS.
 
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_8) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15 mona-agent/2.x';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_8) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15 remote-agent/2.x';
 const FETCH_TIMEOUT_MS = 15000;
 const MAX_TEXT = 10000;
 

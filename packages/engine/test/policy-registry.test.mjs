@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PolicyRegistry } from '../src/policy-registry.js';
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-policy-registry-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-policy-registry-'));
 
 describe('PolicyRegistry', () => {
   it('creates immutable tenant-scoped revisions and activates/rolls back', () => {

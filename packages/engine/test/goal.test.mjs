@@ -11,7 +11,7 @@ import fs from 'node:fs';
 
 let GoalStore, parseGoalMarker, buildGoalRoundPrompt, goalRoundTaskText, MAX_GOAL_ROUNDS;
 
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-goal-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-goal-'));
 const storePath = (n) => path.join(TMP, `goals-${n}.json`);
 
 before(async () => {

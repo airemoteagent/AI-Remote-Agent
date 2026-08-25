@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// mona-agent skills — manage agent skills.
+// remote-agent skills — manage agent skills.
 //   list | enable <name> | disable <name> | install
 
 import { SkillsManager } from '../src/skills.js';
@@ -11,7 +11,7 @@ switch (cmd) {
   case 'list': {
     const items = manager.list();
     if (!items.length) {
-      console.log('No skills installed. Run: mona-agent skills install');
+      console.log('No skills installed. Run: remote-agent skills install');
       process.exit(0);
     }
     for (const s of items) {
@@ -22,14 +22,14 @@ switch (cmd) {
     break;
   }
   case 'enable': {
-    if (!arg) { console.error('Usage: mona-agent skills enable <name>'); process.exit(2); }
+    if (!arg) { console.error('Usage: remote-agent skills enable <name>'); process.exit(2); }
     const r = manager.enable(arg);
     if (!r.ok) { console.error(r.error); process.exit(1); }
     console.log(`Enabled ${arg}. Active skills: ${r.enabled.join(', ') || '(none)'}`);
     break;
   }
   case 'disable': {
-    if (!arg) { console.error('Usage: mona-agent skills disable <name>'); process.exit(2); }
+    if (!arg) { console.error('Usage: remote-agent skills disable <name>'); process.exit(2); }
     manager.disable(arg);
     console.log(`Disabled ${arg}.`);
     break;
@@ -40,6 +40,6 @@ switch (cmd) {
     break;
   }
   default:
-    console.log('Usage: mona-agent skills <list|enable|disable|install>');
+    console.log('Usage: remote-agent skills <list|enable|disable|install>');
     process.exit(2);
 }

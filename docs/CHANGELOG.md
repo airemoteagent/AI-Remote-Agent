@@ -28,7 +28,7 @@
   leak into children; API keys and other secrets never do. Only allowlisted
   env vars (`$HOME`, `$PATH`, …) are expanded; everything else stays literal.
 - **Process-group kill on timeout** — the whole tree dies, no orphans.
-- **`MONA_SHELL_UNSAFE=1` is deprecated.** Unrestricted shell is now a
+- **`REMOTE_SHELL_UNSAFE=1` is deprecated.** Unrestricted shell is now a
   policy decision (`"shell": {"unsafe": true}` in `policy.json`) that is
   audited. The env flag still works for one minor version with a warning.
 - **SSRF-safe networking.** `net` and `web` now resolve DNS themselves,
@@ -40,12 +40,12 @@
 - **Files: TOCTOU + special-file hardening.** Files are opened with
   `O_NOFOLLOW` and the opened descriptor is verified — no symlink swap
   between check and open. FIFOs, devices and sockets are refused. Deletes
-  move to `~/.mona-agent/trash` by default (`purge: true` for permanent).
+  move to `~/.remote-agent/trash` by default (`purge: true` for permanent).
 - **Policy engine v2** — every decision is written to a hash-chained,
-  append-only audit log (`~/.mona-agent/audit.jsonl`; verify with
-  `mona-agent audit verify`); per-tool rate limits (`rateLimits`); presets
-  `strict` / `standard` / `permissive` (`mona-agent policy preset`);
-  `mona-agent policy explain <tool>` shows exactly which rule fired.
+  append-only audit log (`~/.remote-agent/audit.jsonl`; verify with
+  `remote-agent audit verify`); per-tool rate limits (`rateLimits`); presets
+  `strict` / `standard` / `permissive` (`remote-agent policy preset`);
+  `remote-agent policy explain <tool>` shows exactly which rule fired.
 - **Policy choke point in the tool registry** — every invocation (daemon,
   brain loop, `exec` CLI) passes the local policy engine. The control plane
   can never widen it.
@@ -66,7 +66,7 @@
     **TaskLoop** engine core — policy checks on every tool call, corrective
     nudges, budget steering and a forced conclusion are engine guarantees,
     not daemon habits
-  - **Policy-as-code** — `~/.mona-agent/policy.json` (or `MONA_POLICY`) now
+  - **Policy-as-code** — `~/.remote-agent/policy.json` (or `REMOTE_POLICY`) now
     governs tool authorization (`allow`/`deny`/`confirm`), shell patterns and
     daily budget caps; safe defaults apply when no file exists
   - **Budget governor** — daily token/cost caps degrade the reasoning profile
@@ -76,13 +76,13 @@
     recall) now auto-remembers finished tasks and injects recalled context
     into future prompts alongside the markdown memory tool
   - **Shared wire contract** — every outbound frame is a versioned envelope
-    from `@mona/protocol`; inbound frames with an unknown protocol version
+    from `@remote-agent/protocol`; inbound frames with an unknown protocol version
     are rejected at connect time (close code 4002); `agent.log` type added
   - **Lenient parser merged upstream** — the battle-tested brain-reply parser
     (balanced-brace extraction, broken-JSON salvage, reasoning preserved on
     tool calls) now lives in the engine, so the daemon and any future client
     parse identically
-- **Skills tests fixed** — test isolation from the real `~/.mona-agent` config
+- **Skills tests fixed** — test isolation from the real `~/.remote-agent` config
 - Test suite grew 58 → 104 (engine loop/parser, protocol contract, skills);
   all green on Node 20/22
 
@@ -92,7 +92,7 @@
   (i/maxSteps)`, so a task can never appear stuck or loop without output
 - **Professional README** — five promises: saves money (cheap-first model
   routing, per-run cost traces), zero API keys on device, fully transparent,
-  never loops silently, controlled exclusively via agent.mona.expert
+  never loops silently, controlled exclusively via remoteagent.online
 
 
 ## v2.5.0
@@ -146,7 +146,7 @@
 - Compliance documentation suite (CRA, ISO 27001, IEC 62443, GDPR, SBOM)
 
 
-All notable changes to the mona-agent client are documented here.
+All notable changes to the remote-agent client are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com), versioning:
 [SemVer](https://semver.org).
 
@@ -156,7 +156,7 @@ Format: [Keep a Changelog](https://keepachangelog.com), versioning:
 
 - **Agentic execution loop** — the device is no longer a listener; it's an
   operator. Tasks from the dashboard flow into a cloud task queue, the
-  device claims them within seconds, and the mona.expert brain plans the
+  device claims them within seconds, and the remoteagent.online brain plans the
   work: think  act  observe  deliver. Up to 8 tool steps per task, with
   every step streamed to the dashboard activity feed in real time.
 - **Cloud task queue (WS-free command channel)** — devices poll for work
@@ -193,7 +193,7 @@ Format: [Keep a Changelog](https://keepachangelog.com), versioning:
 
 - Repo is now **client-only** (SaaS boundary) — server-side code moved to a
   private codebase.
-- `mona-agent login` flow stores credentials outside the install dir.
+- `remote-agent login` flow stores credentials outside the install dir.
 
 ## [1.x] — earlier
 
@@ -206,5 +206,5 @@ Format: [Keep a Changelog](https://keepachangelog.com), versioning:
 
 ## Changelog links
 
-[2.1.0]: https://github.com/MONAEXPERT/agent/releases/tag/v2.1.0
-[2.0.0]: https://github.com/MONAEXPERT/agent/releases/tag/v2.0.0
+[2.1.0]: https://github.com/remoteagent-online/remote-agent/releases/tag/v2.1.0
+[2.0.0]: https://github.com/remoteagent-online/remote-agent/releases/tag/v2.0.0

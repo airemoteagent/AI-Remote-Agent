@@ -5,10 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 let DeviceRegistry, hashCredential, auditVerify;
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-devices-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-devices-'));
 const storePath = (name) => path.join(TMP, `${name}.json`);
 const AUDIT = path.join(TMP, 'audit.jsonl');
-process.env.MONA_AUDIT = AUDIT;
+process.env.REMOTE_AUDIT = AUDIT;
 
 before(async () => ({ DeviceRegistry, hashCredential, auditVerify } = await import('../src/index.mjs')));
 

@@ -1,15 +1,15 @@
-// Update — check for and apply mona-agent updates.
+// Update — check for and apply remote-agent updates.
 //
-//   mona-agent update          fetch latest release and self-update
-//   mona-agent update check    only report what's available
+//   remote-agent update          fetch latest release and self-update
+//   remote-agent update check    only report what's available
 //
 // Update mechanics:
 //   - Latest version is read from the GitHub releases API of
-//     MONAEXPERT/agent (public repo, no auth needed).
-//   - The install lives in ~/.mona-agent/agent/ as a full copy of the
+//     remoteagent-online/remote-agent (public repo, no auth needed).
+//   - The install lives in ~/.remote-agent/agent/ as a full copy of the
 //     repo. Self-update replaces it with the release tarball, re-runs
 //     `npm install`, and restarts the daemon if it was running.
-//   - A version lifecycle record (~/.mona-agent/update.json) tracks
+//   - A version lifecycle record (~/.remote-agent/update.json) tracks
 //     when we last checked, what we saw, and what we installed — so
 //     the dashboard can show "update available" per agent.
 //
@@ -24,10 +24,10 @@ import { createHash } from 'node:crypto';
 import { VERSION, isUpdateAvailable, compareVersions } from './version.js';
 import { PATHS } from './config.js';
 
-export const REPO = 'MONAEXPERT/agent';
+export const REPO = 'remoteagent-online/remote-agent';
 const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const TAGS_URL = `https://api.github.com/repos/${REPO}/tags?per_page=20`;
-const TARBALL = (tag) => `https://github.com/${REPO}/releases/download/${tag}/mona-agent-${tag}.tar.gz`;
+const TARBALL = (tag) => `https://github.com/${REPO}/releases/download/${tag}/remote-agent-${tag}.tar.gz`;
 const CHECKSUMS = (tag) => `https://github.com/${REPO}/releases/download/${tag}/SHA256SUMS`;
 
 export function verifyChecksum(bytes, manifest, filename) {
@@ -64,7 +64,7 @@ export async function fetchLatest() {
   // 1) Try the formal latest release
   try {
     const res = await fetch(RELEASES_URL, {
-      headers: { 'user-agent': `mona-agent/${VERSION}`, accept: 'application/vnd.github+json' },
+      headers: { 'user-agent': `remote-agent/${VERSION}`, accept: 'application/vnd.github+json' },
     });
     if (res.ok) {
       const data = await res.json();
@@ -84,7 +84,7 @@ export async function fetchLatest() {
   // 2) Fallback: newest semver tag (releases aren't published yet)
   try {
     const res = await fetch(TAGS_URL, {
-      headers: { 'user-agent': `mona-agent/${VERSION}`, accept: 'application/vnd.github+json' },
+      headers: { 'user-agent': `remote-agent/${VERSION}`, accept: 'application/vnd.github+json' },
     });
     if (res.ok) {
       const tags = await res.json();
@@ -129,12 +129,12 @@ export async function applyUpdate() {
   if (!latest) return { ok: false, error: 'Could not reach the release feed (offline or rate-limited).' };
   if (!available) return { ok: true, upToDate: true, version: VERSION, latest };
 
-  const installDir = join(homedir(), '.mona-agent', 'agent');
+  const installDir = join(homedir(), '.remote-agent', 'agent');
   if (!existsSync(join(installDir, 'package.json'))) {
     return { ok: false, error: `Install dir not found at ${installDir}. Re-run the installer.` };
   }
 
-  const tmpDir = join(homedir(), '.mona-agent', '.update-tmp');
+  const tmpDir = join(homedir(), '.remote-agent', '.update-tmp');
   const tarball = join(tmpDir, 'release.tar.gz');
   const extracted = join(tmpDir, 'extracted');
 
@@ -146,7 +146,7 @@ export async function applyUpdate() {
     const buf = Buffer.from(await dl.arrayBuffer());
     const sums = await fetch(CHECKSUMS(info.tag));
     if (!sums.ok) return { ok: false, error: `Release checksum manifest unavailable (HTTP ${sums.status}); refusing update.` };
-    const integrity = verifyChecksum(buf, await sums.text(), `mona-agent-${info.tag}.tar.gz`);
+    const integrity = verifyChecksum(buf, await sums.text(), `remote-agent-${info.tag}.tar.gz`);
     if (!integrity.ok) return { ok: false, error: integrity.error };
     writeFileSync(tarball, buf);
 
@@ -174,7 +174,7 @@ export async function applyUpdate() {
     }
 
     // 3) Preserve the user's local state, swap the tree
-    const backup = join(homedir(), '.mona-agent', `.agent.bak-${VERSION}`);
+    const backup = join(homedir(), '.remote-agent', `.agent.bak-${VERSION}`);
     rmSync(backup, { recursive: true, force: true });
     renameSync(installDir, backup);
     try {
@@ -185,7 +185,7 @@ export async function applyUpdate() {
       return { ok: false, error: `Swap failed: ${e.message}` };
     }
 
-    // 4) Install deps (workspace root install; @mona/* are symlinked)
+    // 4) Install deps (workspace root install; @remote-agent/* are symlinked)
     const ni = spawnSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: installDir, encoding: 'utf8', timeout: 120_000 });
     if (ni.status !== 0) {
       // Deps failed — restore backup so the device keeps working

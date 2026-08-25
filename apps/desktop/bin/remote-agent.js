@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ── mona-agent CLI ────────────────────────────────────────────────
+// ── remote-agent CLI ────────────────────────────────────────────────
 // Commands:
 //   gui          Terminal dashboard (default when TTY)
 //   start        Headless daemon
@@ -28,7 +28,7 @@ import { tools } from '../src/tools/index.js';
 import { AgentDaemon } from '../src/agent.js';
 import { Dashboard } from '../src/tui.js';
 import { log } from '../src/log.js';
-import { Policy, auditVerify } from '@mona/engine';
+import { Policy, auditVerify } from '@remote-agent/engine';
 import { MODES, MODE_NAMES, applyMode, modeSummary, currentMode, POLICY_PATH } from '../src/modes.js';
 import { daemonStatus, daemonInstall, daemonUninstall, alreadyRunning, stopRunningDaemon, DAEMON_PATHS, writePid, clearPid } from '../src/daemon.js';
 import { SkillsManager } from '../src/skills.js';
@@ -53,13 +53,13 @@ async function login() {
   const rl = createInterface({ input: stdin, output: stdout });
   const existing = loadCreds();
 
-  console.log(`\n  ${BOLD}mona-agent login${RESET}\n`);
+  console.log(`\n  ${BOLD}remote-agent login${RESET}\n`);
 
   if (existing?.apiKey) {
     console.log(`  ${DIM}An API key is already saved. This will replace it.${RESET}\n`);
   }
 
-  const apiKey = (await rl.question('  agent.mona.expert API key: ')).trim();
+  const apiKey = (await rl.question('  remoteagent.online API key: ')).trim();
 
   if (!apiKey) {
     console.error('\n  No key entered.\n');
@@ -78,10 +78,10 @@ async function login() {
     console.log(`  ${DIM}Saved:${RESET}  ${path}`);
     console.log(`  ${DIM}Cloud:${RESET}  ${CLOUD.base}`);
     console.log(`\n  Start the daemon:\n`);
-    console.log(`    ${CYAN}mona-agent gui${RESET}       ${DIM}# terminal dashboard${RESET}`);
-    console.log(`    ${CYAN}mona-agent start${RESET}     ${DIM}# headless daemon${RESET}`);
-    console.log(`    ${CYAN}mona-agent connect${RESET}   ${DIM}# test connection${RESET}`);
-    console.log(`\n  ${DIM}Enjoying it?  Star the repo:${RESET} https://github.com/MONAEXPERT/agent`);
+    console.log(`    ${CYAN}remote-agent gui${RESET}       ${DIM}# terminal dashboard${RESET}`);
+    console.log(`    ${CYAN}remote-agent start${RESET}     ${DIM}# headless daemon${RESET}`);
+    console.log(`    ${CYAN}remote-agent connect${RESET}   ${DIM}# test connection${RESET}`);
+    console.log(`\n  ${DIM}Enjoying it?  Star the repo:${RESET} https://github.com/remoteagent-online/remote-agent`);
     console.log();
     rl.close();
   } catch (e) {
@@ -106,7 +106,7 @@ async function connect() {
   const targetUrl = args[0] || CLOUD.base;
   const force = args.includes('--force') || args.includes('-f');
 
-  console.log(`\n  ${BOLD}${CYAN}mona-agent connect${RESET}\n`);
+  console.log(`\n  ${BOLD}${CYAN}remote-agent connect${RESET}\n`);
   console.log(`  ${DIM}Target:${RESET}    ${targetUrl}`);
   console.log(`  ${DIM}API Key:${RESET}   ${creds.apiKey.slice(0, 8)}...`);
   console.log(`  ${DIM}Agent ID:${RESET}  ${creds.agentId || '(pending)'}`);
@@ -144,7 +144,7 @@ async function connect() {
   const allOk = results.health?.ok && results.auth && !results.auth.error;
   console.log();
   console.log(`  ${allOk ? GREEN + 'Connection successful!' : RED + 'Connection issues detected'}${RESET}`);
-  console.log(`  ${DIM}Run ${CYAN}mona-agent debug${RESET}${DIM} for verbose output${RESET}`);
+  console.log(`  ${DIM}Run ${CYAN}remote-agent debug${RESET}${DIM} for verbose output${RESET}`);
   console.log();
 }
 
@@ -154,15 +154,15 @@ async function chat() {
   const message = args.join(' ');
 
   if (!message) {
-    console.log(`\n  ${BOLD}mona-agent chat${RESET}\n`);
-    console.log(`  ${DIM}Usage:${RESET} mona-agent chat ${CYAN}<message>${RESET}`);
+    console.log(`\n  ${BOLD}remote-agent chat${RESET}\n`);
+    console.log(`  ${DIM}Usage:${RESET} remote-agent chat ${CYAN}<message>${RESET}`);
     console.log(`  ${DIM}Send a chat message to the connected agent.${RESET}\n`);
     process.exit(1);
   }
 
   const agentId = creds.agentId || 'default';
 
-  console.log(`\n  ${BOLD}mona-agent chat${RESET}\n`);
+  console.log(`\n  ${BOLD}remote-agent chat${RESET}\n`);
   console.log(`  ${DIM}Agent:${RESET}  ${agentId}`);
   console.log(`  ${DIM}Cloud:${RESET}  ${CLOUD.base}`);
   console.log(`\n  ${CYAN}▸${RESET} ${message}\n`);
@@ -193,8 +193,8 @@ async function execTool() {
   }
 
   if (!toolName) {
-    console.log(`\n  ${BOLD}mona-agent exec${RESET}\n`);
-    console.log(`  ${DIM}Usage:${RESET} mona-agent exec ${CYAN}<tool> [key=value...]${RESET}\n`);
+    console.log(`\n  ${BOLD}remote-agent exec${RESET}\n`);
+    console.log(`  ${DIM}Usage:${RESET} remote-agent exec ${CYAN}<tool> [key=value...]${RESET}\n`);
     console.log(`  ${DIM}Available tools:${RESET}`);
     for (const t of tools.list()) {
       console.log(`    ${CYAN}${t.name.padEnd(14)}${RESET} ${DIM}${t.description}${RESET}`);
@@ -203,7 +203,7 @@ async function execTool() {
     return;
   }
 
-  console.log(`\n  ${BOLD}mona-agent exec${RESET}\n`);
+  console.log(`\n  ${BOLD}remote-agent exec${RESET}\n`);
   console.log(`  ${DIM}Tool:${RESET}  ${toolName}`);
   if (Object.keys(toolArgs).length > 0) {
     console.log(`  ${DIM}Args:${RESET}  ${JSON.stringify(toolArgs)}`);
@@ -238,7 +238,7 @@ async function execTool() {
 async function debug() {
   const creds = loadCreds();
 
-  console.log(`\n  ${BOLD}${MAGENTA}mona-agent debug${RESET}\n`);
+  console.log(`\n  ${BOLD}${MAGENTA}remote-agent debug${RESET}\n`);
 
   // Environment
   console.log(`  ${BOLD}Environment${RESET}`);
@@ -257,7 +257,7 @@ async function debug() {
     console.log(`  ${DIM}File:${RESET}      ${PATHS.creds}`);
   } else {
     console.log(`  ${DIM}API Key:${RESET}   ${RED}not set${RESET}`);
-    console.log(`  ${DIM}Run:${RESET}       ${CYAN}mona-agent login${RESET}`);
+    console.log(`  ${DIM}Run:${RESET}       ${CYAN}remote-agent login${RESET}`);
   }
 
   // Tools
@@ -268,12 +268,12 @@ async function debug() {
 
   // Config
   console.log(`\n  ${BOLD}Config${RESET}`);
-  console.log(`  ${DIM}MONA_CLOUD:${RESET}       ${process.env.MONA_CLOUD || '(default)'}`);
-  console.log(`  ${DIM}MONA_CLOUD_WS:${RESET}    ${process.env.MONA_CLOUD_WS || '(auto)'}`);
-  console.log(`  ${DIM}MONA_ALLOW_CMDS:${RESET}  ${process.env.MONA_ALLOW_CMDS || '(default)'}`);
-  console.log(`  ${DIM}MONA_SHELL_UNSAFE:${RESET} ${process.env.MONA_SHELL_UNSAFE || '0'} ${process.env.MONA_SHELL_UNSAFE ? YELLOW + '(deprecated — use policy shell.unsafe)' + RESET : ''}`);
-  console.log(`  ${DIM}MONA_POLICY:${RESET}      ${process.env.MONA_POLICY || '~/.mona-agent/policy.json'}`);
-  console.log(`  ${DIM}MONA_WORKSPACE:${RESET}   ${process.env.MONA_WORKSPACE || '(default)'}`);
+  console.log(`  ${DIM}REMOTE_CLOUD:${RESET}       ${process.env.REMOTE_CLOUD || '(default)'}`);
+  console.log(`  ${DIM}REMOTE_CLOUD_WS:${RESET}    ${process.env.REMOTE_CLOUD_WS || '(auto)'}`);
+  console.log(`  ${DIM}REMOTE_ALLOW_CMDS:${RESET}  ${process.env.REMOTE_ALLOW_CMDS || '(default)'}`);
+  console.log(`  ${DIM}REMOTE_SHELL_UNSAFE:${RESET} ${process.env.REMOTE_SHELL_UNSAFE || '0'} ${process.env.REMOTE_SHELL_UNSAFE ? YELLOW + '(deprecated — use policy shell.unsafe)' + RESET : ''}`);
+  console.log(`  ${DIM}REMOTE_POLICY:${RESET}      ${process.env.REMOTE_POLICY || '~/.remote-agent/policy.json'}`);
+  console.log(`  ${DIM}REMOTE_WORKSPACE:${RESET}   ${process.env.REMOTE_WORKSPACE || '(default)'}`);
 
   // Connection test
   if (creds?.apiKey) {
@@ -306,12 +306,12 @@ async function debug() {
 async function policyCmd() {
   const sub = args[0] || 'status';
   const p = Policy.load();
-  const policyPath = process.env.MONA_POLICY || join(homedir(), '.mona-agent', 'policy.json');
+  const policyPath = process.env.REMOTE_POLICY || join(homedir(), '.remote-agent', 'policy.json');
 
   if (sub === 'status') {
-    console.log(`\n  ${BOLD}mona-agent policy${RESET}\n`);
+    console.log(`\n  ${BOLD}remote-agent policy${RESET}\n`);
     console.log(`  ${DIM}File:${RESET}    ${policyPath}${existsSync(policyPath) ? '' : ` ${YELLOW}(not created — defaults in use)${RESET}`}`);
-    console.log(`  ${DIM}Unsafe:${RESET}  ${p.shellUnsafe ? YELLOW + 'true' + RESET + (p.unsafeSource === 'env' ? ` ${DIM}(deprecated MONA_SHELL_UNSAFE env — move to policy)${RESET}` : '') : GREEN + 'false' + RESET}`);
+    console.log(`  ${DIM}Unsafe:${RESET}  ${p.shellUnsafe ? YELLOW + 'true' + RESET + (p.unsafeSource === 'env' ? ` ${DIM}(deprecated REMOTE_SHELL_UNSAFE env — move to policy)${RESET}` : '') : GREEN + 'false' + RESET}`);
     console.log(`  ${DIM}Budget:${RESET}  ${p.dailyTokens || '∞'} tokens/day, ${p.dailyCostUsd ? '$' + p.dailyCostUsd : '∞'} USD/day`);
     console.log(`  ${DIM}Max steps:${RESET} ${p.maxSteps}`);
     console.log(`  ${DIM}Audit:${RESET}   ${p.auditEnabled ? GREEN + 'on' + RESET : 'off'} (${p.auditPath})`);
@@ -319,15 +319,15 @@ async function policyCmd() {
     for (const t of tools.names()) {
       console.log(`    ${CYAN}${t.padEnd(10)}${RESET} ${p.toolTier(t)}`);
     }
-    console.log(`\n  ${DIM}Presets:${RESET} ${CYAN}mona-agent policy preset strict|standard|permissive${RESET}`);
-    console.log(`  ${DIM}Explain:${RESET} ${CYAN}mona-agent policy explain <tool> [key=value...]${RESET}\n`);
+    console.log(`\n  ${DIM}Presets:${RESET} ${CYAN}remote-agent policy preset strict|standard|permissive${RESET}`);
+    console.log(`  ${DIM}Explain:${RESET} ${CYAN}remote-agent policy explain <tool> [key=value...]${RESET}\n`);
     return;
   }
 
   if (sub === 'explain') {
     const toolName = args[1];
     if (!toolName) {
-      console.log(`\n  ${DIM}Usage:${RESET} mona-agent policy explain ${CYAN}<tool> [key=value...]${RESET}\n`);
+      console.log(`\n  ${DIM}Usage:${RESET} remote-agent policy explain ${CYAN}<tool> [key=value...]${RESET}\n`);
       return;
     }
     const toolArgs = {};
@@ -336,7 +336,7 @@ async function policyCmd() {
       if (eq > 0) toolArgs[args[i].slice(0, eq)] = args[i].slice(eq + 1);
     }
     const e = p.explain(toolName, toolArgs);
-    console.log(`\n  ${BOLD}mona-agent policy explain${RESET}\n`);
+    console.log(`\n  ${BOLD}remote-agent policy explain${RESET}\n`);
     console.log(`  ${DIM}Tool:${RESET}      ${toolName}`);
     console.log(`  ${DIM}Decision:${RESET}  ${e.tier === 'allow' ? GREEN + 'allow' : e.tier === 'confirm' ? YELLOW + 'confirm' : RED + 'deny'}${RESET}`);
     console.log(`  ${DIM}Matched:${RESET}   ${e.matchedRule}`);
@@ -349,12 +349,12 @@ async function policyCmd() {
   if (sub === 'preset') {
     const name = args[1];
     if (!name) {
-      console.log(`\n  ${DIM}Usage:${RESET} mona-agent policy preset ${CYAN}<strict|standard|permissive>${RESET}\n`);
+      console.log(`\n  ${DIM}Usage:${RESET} remote-agent policy preset ${CYAN}<strict|standard|permissive>${RESET}\n`);
       return;
     }
     try {
       const preset = Policy.preset(name);
-      mkdirSync(join(homedir(), '.mona-agent'), { recursive: true });
+      mkdirSync(join(homedir(), '.remote-agent'), { recursive: true });
       writeFileSync(policyPath, JSON.stringify(preset.raw, null, 2) + '\n', { mode: 0o600 });
       console.log(`\n  ${GREEN}Wrote ${name} preset${RESET} → ${policyPath}`);
       console.log(`  ${DIM}Restart the daemon for it to take effect.${RESET}\n`);
@@ -365,13 +365,13 @@ async function policyCmd() {
     return;
   }
 
-  console.error(`\n  Unknown policy subcommand: ${sub}\n  Run ${CYAN}mona-agent policy help${RESET}\n`);
+  console.error(`\n  Unknown policy subcommand: ${sub}\n  Run ${CYAN}remote-agent policy help${RESET}\n`);
 }
 
 // ── audit (tamper-evident decision log) ───────────────────────────
 async function auditCmd() {
   const sub = args[0] || 'tail';
-  const auditPath = process.env.MONA_AUDIT || join(homedir(), '.mona-agent', 'audit.jsonl');
+  const auditPath = process.env.REMOTE_AUDIT || join(homedir(), '.remote-agent', 'audit.jsonl');
 
   if (sub === 'tail') {
     if (!existsSync(auditPath)) {
@@ -379,7 +379,7 @@ async function auditCmd() {
       return;
     }
     const lines = readFileSync(auditPath, 'utf8').trim().split('\n').filter(Boolean).slice(-20);
-    console.log(`\n  ${BOLD}mona-agent audit${RESET} ${DIM}(${auditPath})${RESET}\n`);
+    console.log(`\n  ${BOLD}remote-agent audit${RESET} ${DIM}(${auditPath})${RESET}\n`);
     for (const line of lines) {
       try {
         const r = JSON.parse(line);
@@ -402,7 +402,7 @@ async function auditCmd() {
     return;
   }
 
-  console.error(`\n  Unknown audit subcommand: ${sub}\n  Run ${CYAN}mona-agent audit help${RESET}\n`);
+  console.error(`\n  Unknown audit subcommand: ${sub}\n  Run ${CYAN}remote-agent audit help${RESET}\n`);
 }
 
 // ── gui (terminal dashboard) ──────────────────────────────────────
@@ -441,10 +441,10 @@ async function start() {
   const creds = requireCreds();
   const force = args.includes('--force');
 
-  console.log(`\n  ${BOLD}${CYAN}mona-agent${RESET} ${DIM}v${DEFAULTS.version}${RESET}`);
+  console.log(`\n  ${BOLD}${CYAN}remote-agent${RESET} ${DIM}v${DEFAULTS.version}${RESET}`);
   console.log(`  ${DIM}Headless daemon — controlled from ${CLOUD.base}${RESET}`);
   console.log(`  ${DIM}Log level: ${log.level || 'info'}${RESET}`);
-  console.log(`  ${DIM} ${RESET}${DIM}Star on GitHub:${RESET} https://github.com/MONAEXPERT/agent`);
+  console.log(`  ${DIM} ${RESET}${DIM}Star on GitHub:${RESET} https://github.com/remoteagent-online/remote-agent`);
   console.log();
 
   const daemon = new AgentDaemon(creds);
@@ -469,7 +469,7 @@ async function start() {
 
   daemon.on('auth-failed', () => {
     process.stderr.write(`  ${RED} Authentication rejected by ${CLOUD.base}${RESET}\n`);
-    process.stderr.write(`  ${YELLOW}  Run ${CYAN}mona-agent login${RESET}${YELLOW} with a valid key, then retry.${RESET}\n`);
+    process.stderr.write(`  ${YELLOW}  Run ${CYAN}remote-agent login${RESET}${YELLOW} with a valid key, then retry.${RESET}\n`);
     process.exit(1);
   });
 
@@ -503,7 +503,7 @@ async function modeCmd() {
   if (sub === 'set') {
     const name = args[1];
     if (!name) {
-      console.error(`\n  Usage: mona-agent mode set <${MODE_NAMES.join('|')}>\n`);
+      console.error(`\n  Usage: remote-agent mode set <${MODE_NAMES.join('|')}>\n`);
       process.exit(2);
     }
     try {
@@ -512,8 +512,8 @@ async function modeCmd() {
       console.log(`  ${DIM}${r.label}${RESET}`);
       console.log(`  ${DIM}Policy:${RESET}    ${r.policy} → ${r.policyPath}`);
       console.log(`  ${DIM}Skills:${RESET}    ${r.skills.length ? r.skills.join(', ') : '(none)'}`);
-      console.log(`  ${DIM}Daemon:${RESET}    ${r.daemon ? 'auto-start installed' : 'manual (mona-agent start)'}`);
-      console.log(`\n  ${DIM}Next:${RESET} ${CYAN}mona-agent daemon status${RESET}  ·  ${CYAN}mona-agent mode show${RESET}\n`);
+      console.log(`  ${DIM}Daemon:${RESET}    ${r.daemon ? 'auto-start installed' : 'manual (remote-agent start)'}`);
+      console.log(`\n  ${DIM}Next:${RESET} ${CYAN}remote-agent daemon status${RESET}  ·  ${CYAN}remote-agent mode show${RESET}\n`);
     } catch (e) {
       console.error(`\n  ${RED}${e.message}${RESET}\n`);
       process.exit(1);
@@ -523,12 +523,12 @@ async function modeCmd() {
 
   if (sub === 'show' || sub === 'status' || !sub) {
     const s = modeSummary();
-    console.log(`\n  ${BOLD}mona-agent mode${RESET}  ${DIM}· ${s.label}${RESET}`);
+    console.log(`\n  ${BOLD}remote-agent mode${RESET}  ${DIM}· ${s.label}${RESET}`);
     console.log(`  ${DIM}${s.description}${RESET}`);
     console.log(`  ${DIM}Policy:${RESET}  ${s.policy}${s.policyTiers ? '  (' + Object.entries(s.policyTiers).map(([k, v]) => `${k}=${v}`).join(', ') + ')' : ''}`);
     console.log(`  ${DIM}Skills:${RESET}  ${s.skills.length ? s.skills.join(', ') : '(none)'}`);
     console.log(`  ${DIM}Daemon:${RESET}  ${s.daemon ? 'installed' : 'not installed'}`);
-    console.log(`\n  ${DIM}Set a mode:${RESET} ${CYAN}mona-agent mode set <${MODE_NAMES.join('|')}>${RESET}\n`);
+    console.log(`\n  ${DIM}Set a mode:${RESET} ${CYAN}remote-agent mode set <${MODE_NAMES.join('|')}>${RESET}\n`);
     return;
   }
 
@@ -544,7 +544,7 @@ async function modeCmd() {
     return;
   }
 
-  console.error(`\n  Unknown mode subcommand: ${sub}\n  Run ${CYAN}mona-agent mode help${RESET}\n`);
+  console.error(`\n  Unknown mode subcommand: ${sub}\n  Run ${CYAN}remote-agent mode help${RESET}\n`);
   process.exit(2);
 }
 
@@ -586,18 +586,18 @@ async function daemonCmd() {
 
   if (sub === 'status') {
     const st = daemonStatus();
-    console.log(`\n  ${BOLD}mona-agent daemon${RESET}  ${DIM}· ${st.platform}${RESET}`);
+    console.log(`\n  ${BOLD}remote-agent daemon${RESET}  ${DIM}· ${st.platform}${RESET}`);
     console.log(`  ${DIM}Service:${RESET}    ${st.serviceInstalled ? GREEN + 'installed' + RESET : DIM + 'not installed' + RESET}  ${st.serviceRunning ? GREEN + '· running' + RESET : st.serviceLoaded ? YELLOW + '· loaded' + RESET : ''}`);
     console.log(`  ${DIM}PID file:${RESET}   ${st.pid ? st.pid + (st.pidAlive ? ' (alive)' : YELLOW + ' (stale)' + RESET) : '(none)'}`);
     console.log(`  ${DIM}Unit:${RESET}      ${isMacPath()}`);
     console.log(`  ${DIM}Log:${RESET}       ${DAEMON_PATHS.log}\n`);
     if (st.serviceInstalled && !st.serviceRunning) {
-      console.log(`  ${YELLOW}Service installed but not running. Start it:${RESET} ${CYAN}mona-agent daemon install${RESET}\n`);
+      console.log(`  ${YELLOW}Service installed but not running. Start it:${RESET} ${CYAN}remote-agent daemon install${RESET}\n`);
     }
     return;
   }
 
-  console.error(`\n  Unknown daemon subcommand: ${sub}\n  Run ${CYAN}mona-agent daemon help${RESET}\n`);
+  console.error(`\n  Unknown daemon subcommand: ${sub}\n  Run ${CYAN}remote-agent daemon help${RESET}\n`);
   process.exit(2);
 }
 
@@ -613,7 +613,7 @@ async function skillsCmd() {
   if (sub === 'list') {
     const items = manager.list();
     if (!items.length) {
-      console.log(`\n  No skills installed. Run: ${CYAN}mona-agent skills install${RESET}\n`);
+      console.log(`\n  No skills installed. Run: ${CYAN}remote-agent skills install${RESET}\n`);
       return;
     }
     console.log(`\n  ${BOLD}Installed skills${RESET}  (mode: ${CYAN}${currentMode()}${RESET})\n`);
@@ -621,7 +621,7 @@ async function skillsCmd() {
       const mark = s.enabled ? GREEN + '✓' + RESET : DIM + '·' + RESET;
       console.log(`  ${mark} ${s.name} — ${s.description || 'no description'}`);
     }
-    console.log(`\n  Enable: ${CYAN}mona-agent skills enable <name>${RESET}  ·  Disable: ${CYAN}mona-agent skills disable <name>${RESET}\n`);
+    console.log(`\n  Enable: ${CYAN}remote-agent skills enable <name>${RESET}  ·  Disable: ${CYAN}remote-agent skills disable <name>${RESET}\n`);
     return;
   }
 
@@ -633,7 +633,7 @@ async function skillsCmd() {
 
   if (sub === 'enable' || sub === 'disable') {
     const name = args[1];
-    if (!name) { console.error(`\n  Usage: mona-agent skills ${sub} <name>\n`); process.exit(2); }
+    if (!name) { console.error(`\n  Usage: remote-agent skills ${sub} <name>\n`); process.exit(2); }
     if (sub === 'enable') {
       const r = manager.enable(name);
       if (!r.ok) { console.error(`\n  ${RED}${r.error}${RESET}\n`); process.exit(1); }
@@ -645,7 +645,7 @@ async function skillsCmd() {
     return;
   }
 
-  console.error(`\n  Unknown skills subcommand: ${sub}\n  Run ${CYAN}mona-agent skills help${RESET}\n`);
+  console.error(`\n  Unknown skills subcommand: ${sub}\n  Run ${CYAN}remote-agent skills help${RESET}\n`);
   process.exit(2);
 }
 
@@ -655,10 +655,10 @@ async function updateCmd() {
 
   if (sub === 'check' || sub === 'status') {
     const r = await checkForUpdates();
-    console.log(`\n  ${BOLD}mona-agent update check${RESET}`);
+    console.log(`\n  ${BOLD}remote-agent update check${RESET}`);
     console.log(`  ${DIM}Installed:${RESET}  v${r.installed}`);
     console.log(`  ${DIM}Latest:${RESET}     ${r.latest ? 'v' + r.latest : '(unreachable)'}`);
-    if (r.available) console.log(`  ${GREEN}→ Update available. Run: mona-agent update${RESET}`);
+    if (r.available) console.log(`  ${GREEN}→ Update available. Run: remote-agent update${RESET}`);
     else if (r.latest) console.log(`  ${DIM}→ You're on the latest release.${RESET}`);
     else console.log(`  ${YELLOW}→ Could not reach the release feed (offline or rate-limited).${RESET}`);
     console.log();
@@ -682,7 +682,7 @@ async function updateCmd() {
     return;
   }
   console.log(`  ${GREEN}Updated ${r.from} → v${r.version}.${RESET}`);
-  console.log(`  ${DIM}Restart the daemon to pick it up: mona-agent daemon status → start${RESET}\n`);
+  console.log(`  ${DIM}Restart the daemon to pick it up: remote-agent daemon status → start${RESET}\n`);
 }
 
 // ── version ───────────────────────────────────────────────────────
@@ -711,7 +711,7 @@ async function toolsCmd() {
 
   if (sub === 'inspect') {
     const name = args[1];
-    if (!name) { console.error(`\n  Usage: mona-agent tools inspect <name>\n`); process.exit(2); }
+    if (!name) { console.error(`\n  Usage: remote-agent tools inspect <name>\n`); process.exit(2); }
     const reg = new ToolRegistry();
     const external = await discoverExternalTools();
     for (const t of external) reg.register(t);
@@ -725,7 +725,7 @@ async function toolsCmd() {
 
   if (sub === 'validate') {
     const path = args[1];
-    if (!path) { console.error(`\n  Usage: mona-agent tools validate <path-to-tool-module>\n`); process.exit(2); }
+    if (!path) { console.error(`\n  Usage: remote-agent tools validate <path-to-tool-module>\n`); process.exit(2); }
     try {
       const resolved = path.startsWith('/') || path.startsWith('file:') ? path : join(process.cwd(), path);
       const mod = await import(pathToFileURL(resolved).href);
@@ -744,7 +744,7 @@ async function toolsCmd() {
     return;
   }
 
-  console.error(`\n  Unknown tools subcommand: ${sub}\n  Run ${CYAN}mona-agent tools help${RESET}\n`);
+  console.error(`\n  Unknown tools subcommand: ${sub}\n  Run ${CYAN}remote-agent tools help${RESET}\n`);
   process.exit(2);
 }
 
@@ -752,10 +752,10 @@ async function toolsCmd() {
 function status() {
   const c = loadCreds();
 
-  console.log(`\n  ${BOLD}mona-agent status${RESET}\n`);
+  console.log(`\n  ${BOLD}remote-agent status${RESET}\n`);
 
   if (!c?.apiKey) {
-    console.log(`  ${RED}Not logged in.${RESET} Run: ${CYAN}mona-agent login${RESET}\n`);
+    console.log(`  ${RED}Not logged in.${RESET} Run: ${CYAN}remote-agent login${RESET}\n`);
     return;
   }
 
@@ -778,19 +778,19 @@ function status() {
 // ── help ──────────────────────────────────────────────────────────
 function help() {
   console.log(`
-  ${BOLD}mona-agent${RESET} ${DIM}v${DEFAULTS.version}${RESET}
+  ${BOLD}remote-agent${RESET} ${DIM}v${DEFAULTS.version}${RESET}
   Cloud-brained device agent. No local LLM keys.
 
   ${BOLD}USAGE${RESET}
 
-    mona-agent ${CYAN}<command>${RESET} ${DIM}[options]${RESET}
+    remote-agent ${CYAN}<command>${RESET} ${DIM}[options]${RESET}
 
   ${BOLD}COMMANDS${RESET}
 
     ${CYAN}gui${RESET}               Terminal dashboard with live metrics   ${DIM}(default)${RESET}
                              (no key saved? press ${CYAN}l${RESET} inside to log in)
     ${CYAN}start${RESET}             Headless daemon (no UI)
-    ${CYAN}login${RESET}             Save your agent.mona.expert API key
+    ${CYAN}login${RESET}             Save your remoteagent.online API key
     ${CYAN}connect${RESET} ${DIM}[url]${RESET}   Test / force connection to control plane
     ${CYAN}chat${RESET} ${DIM}<msg>${RESET}      Send a chat message via API
     ${CYAN}exec${RESET} ${DIM}<tool>${RESET}     Execute a tool directly (sysinfo, shell, files, net)
@@ -809,78 +809,78 @@ function help() {
   ${BOLD}EXAMPLES${RESET}
 
     ${DIM}# Login to your control plane${RESET}
-    mona-agent login
+    remote-agent login
 
     ${DIM}# Start the terminal dashboard${RESET}
-    mona-agent gui
+    remote-agent gui
 
     ${DIM}# Test connection to custom endpoint${RESET}
-    mona-agent connect http://localhost:4300
+    remote-agent connect http://localhost:4300
 
     ${DIM}# Send a chat message${RESET}
-    mona-agent chat "What is the system status?"
+    remote-agent chat "What is the system status?"
 
     ${DIM}# Execute a local tool${RESET}
-    mona-agent exec sysinfo
-    mona-agent exec shell cmd=uptime
-    mona-agent exec files action=list path=/tmp
+    remote-agent exec sysinfo
+    remote-agent exec shell cmd=uptime
+    remote-agent exec files action=list path=/tmp
 
     ${DIM}# Security: policy + audit${RESET}
-    mona-agent policy status
-    mona-agent policy explain shell cmd=df
-    mona-agent policy preset standard
-    mona-agent audit tail
-    mona-agent audit verify
+    remote-agent policy status
+    remote-agent policy explain shell cmd=df
+    remote-agent policy preset standard
+    remote-agent audit tail
+    remote-agent audit verify
 
     ${DIM}# Debug mode${RESET}
-    mona-agent debug
+    remote-agent debug
 
     ${DIM}# Capability dial: from zero skills to full daemon${RESET}
-    mona-agent mode list
-    mona-agent mode set standard
-    mona-agent mode set full     ${DIM}# also installs auto-start daemon${RESET}
-    mona-agent daemon status
-    mona-agent daemon install
-    mona-agent daemon uninstall
+    remote-agent mode list
+    remote-agent mode set standard
+    remote-agent mode set full     ${DIM}# also installs auto-start daemon${RESET}
+    remote-agent daemon status
+    remote-agent daemon install
+    remote-agent daemon uninstall
 
     ${DIM}# Version lifecycle${RESET}
-    mona-agent version          ${DIM}# installed version${RESET}
-    mona-agent update check     ${DIM}# latest available?${RESET}
-    mona-agent update           ${DIM}# self-update from GitHub${RESET}
+    remote-agent version          ${DIM}# installed version${RESET}
+    remote-agent update check     ${DIM}# latest available?${RESET}
+    remote-agent update           ${DIM}# self-update from GitHub${RESET}
 
     ${DIM}# Bring your own LLM (BYO keys — prompts stay on this device)${RESET}
-    mona-agent provider set anthropic ${DIM}# or: openai / ollama${RESET}
-    mona-agent provider set openai --url http://localhost:1234/v1 --model llama-3
-    mona-agent provider test
-    MONA_TRANSPORT=local mona-agent start
+    remote-agent provider set anthropic ${DIM}# or: openai / ollama${RESET}
+    remote-agent provider set openai --url http://localhost:1234/v1 --model llama-3
+    remote-agent provider test
+    REMOTE_TRANSPORT=local remote-agent start
 
     ${DIM}# Model Context Protocol — expose the tools to other agents${RESET}
-    mona-agent mcp
+    remote-agent mcp
 
   ${BOLD}ENVIRONMENT${RESET}
 
-    MONA_CLOUD        Cloud base URL     ${DIM}(default: ${CLOUD.base})${RESET}
-    MONA_CLOUD_WS     WebSocket URL      ${DIM}(auto-derived from MONA_CLOUD)${RESET}
-    MONA_ALLOW_CMDS   Shell allowlist    ${DIM}(comma-separated command names)${RESET}
-    MONA_POLICY       Policy file path   ${DIM}(default: ~/.mona-agent/policy.json)${RESET}
-    MONA_WORKSPACE    File tool sandbox  ${DIM}(default: ~/.mona-agent/workspace)${RESET}
-    MONA_SHELL_UNSAFE ${YELLOW}DEPRECATED${RESET}        ${DIM}— set "shell": {"unsafe": true} in policy.json instead${RESET}
-    MONA_TRANSPORT    ${DIM}local | auto${RESET}   ${DIM}(local = BYO provider only, fail fast when unset)${RESET}
-    MONA_PROVIDER     ${DIM}anthropic | openai | ollama${RESET}
-    MONA_PROVIDER_KEY ${DIM}provider API key${RESET}        ${DIM}(never leaves the device)${RESET}
-    MONA_PROVIDER_URL ${DIM}provider base URL${RESET}       ${DIM}(OpenAI-compatible endpoints, Ollama, …)${RESET}
-    MONA_PROVIDER_MODEL ${DIM}model name override${RESET}
+    REMOTE_CLOUD        Cloud base URL     ${DIM}(default: ${CLOUD.base})${RESET}
+    REMOTE_CLOUD_WS     WebSocket URL      ${DIM}(auto-derived from REMOTE_CLOUD)${RESET}
+    REMOTE_ALLOW_CMDS   Shell allowlist    ${DIM}(comma-separated command names)${RESET}
+    REMOTE_POLICY       Policy file path   ${DIM}(default: ~/.remote-agent/policy.json)${RESET}
+    REMOTE_WORKSPACE    File tool sandbox  ${DIM}(default: ~/.remote-agent/workspace)${RESET}
+    REMOTE_SHELL_UNSAFE ${YELLOW}DEPRECATED${RESET}        ${DIM}— set "shell": {"unsafe": true} in policy.json instead${RESET}
+    REMOTE_TRANSPORT    ${DIM}local | auto${RESET}   ${DIM}(local = BYO provider only, fail fast when unset)${RESET}
+    REMOTE_PROVIDER     ${DIM}anthropic | openai | ollama${RESET}
+    REMOTE_PROVIDER_KEY ${DIM}provider API key${RESET}        ${DIM}(never leaves the device)${RESET}
+    REMOTE_PROVIDER_URL ${DIM}provider base URL${RESET}       ${DIM}(OpenAI-compatible endpoints, Ollama, …)${RESET}
+    REMOTE_PROVIDER_MODEL ${DIM}model name override${RESET}
 
   ${BOLD}QUICK START${RESET}
 
     ${DIM}# 1. Login${RESET}
-    mona-agent login
+    remote-agent login
 
     ${DIM}# 2. Verify connection${RESET}
-    mona-agent connect
+    remote-agent connect
 
     ${DIM}# 3. Start the dashboard${RESET}
-    mona-agent gui
+    remote-agent gui
 
   ${DIM}Cloud reasoning runs on ${BOLD}${CLOUD.base}${RESET}${DIM}; BYO providers run on-device.${RESET}
 `);
@@ -892,10 +892,10 @@ async function providerCmd() {
 
   if (sub === 'status') {
     const cfg = loadProviderConfig();
-    console.log(`\n  ${BOLD}mona-agent provider${RESET}\n`);
+    console.log(`\n  ${BOLD}remote-agent provider${RESET}\n`);
     if (!cfg) {
       console.log(`  ${DIM}No BYO provider configured — the cloud brain is in use.${RESET}`);
-      console.log(`  ${DIM}Bring your own keys:${RESET} ${CYAN}mona-agent provider set <anthropic|openai|ollama>${RESET}\n`);
+      console.log(`  ${DIM}Bring your own keys:${RESET} ${CYAN}remote-agent provider set <anthropic|openai|ollama>${RESET}\n`);
       return;
     }
     console.log(`  ${DIM}Provider:${RESET} ${cfg.provider}`);
@@ -917,11 +917,11 @@ async function providerCmd() {
   if (sub === 'test') {
     const cfg = loadProviderConfig();
     if (!cfg) {
-      console.log(`\n  ${RED}No provider configured.${RESET} Run: ${CYAN}mona-agent provider set <provider>${RESET}\n`);
+      console.log(`\n  ${RED}No provider configured.${RESET} Run: ${CYAN}remote-agent provider set <provider>${RESET}\n`);
       process.exit(1);
     }
     const prompt = args.slice(1).join(' ') || 'Reply with exactly: OK';
-    console.log(`\n  ${BOLD}mona-agent provider test${RESET}\n`);
+    console.log(`\n  ${BOLD}remote-agent provider test${RESET}\n`);
     console.log(`  ${DIM}Provider:${RESET} ${cfg.provider} · ${DIM}Model:${RESET} ${cfg.model}\n`);
     process.stdout.write(`  ${MAGENTA}Calling…${RESET}`);
     try {
@@ -938,20 +938,20 @@ async function providerCmd() {
   if (sub === 'set') {
     const provider = (args[1] || '').toLowerCase();
     if (!PROVIDERS.includes(provider)) {
-      console.log(`\n  ${BOLD}mona-agent provider set${RESET}\n`);
-      console.log(`  ${DIM}Usage:${RESET} mona-agent provider set ${CYAN}<anthropic|openai|ollama>${RESET} ${DIM}[--key KEY] [--url URL] [--model MODEL]${RESET}\n`);
+      console.log(`\n  ${BOLD}remote-agent provider set${RESET}\n`);
+      console.log(`  ${DIM}Usage:${RESET} remote-agent provider set ${CYAN}<anthropic|openai|ollama>${RESET} ${DIM}[--key KEY] [--url URL] [--model MODEL]${RESET}\n`);
       console.log(`  ${DIM}Providers:${RESET}`);
       console.log(`    ${CYAN}anthropic${RESET}  Claude (api.anthropic.com)`);
       console.log(`    ${CYAN}openai${RESET}     OpenAI or any compatible endpoint (OpenRouter, Groq, LM Studio, vLLM…)`);
       console.log(`    ${CYAN}ollama${RESET}     local models at http://127.0.0.1:11434 — fully offline, $0\n`);
-      console.log(`  ${DIM}Key comes from --key or MONA_PROVIDER_KEY. Prompts stay on this device.${RESET}\n`);
+      console.log(`  ${DIM}Key comes from --key or REMOTE_PROVIDER_KEY. Prompts stay on this device.${RESET}\n`);
       return;
     }
     const opt = (name) => {
       const i = args.indexOf(name);
       return i >= 0 && args[i + 1] ? args[i + 1] : null;
     };
-    let apiKey = opt('--key') || process.env.MONA_PROVIDER_KEY || null;
+    let apiKey = opt('--key') || process.env.REMOTE_PROVIDER_KEY || null;
     if (provider !== 'ollama' && !apiKey) {
       const rl = createInterface({ input: stdin, output: stdout });
       apiKey = (await rl.question(`  API key for ${provider}: `)).trim();
@@ -972,13 +972,13 @@ async function providerCmd() {
     console.log(`  ${DIM}Model:${RESET}    ${cfg.model}`);
     console.log(`  ${DIM}Base URL:${RESET} ${cfg.baseUrl}`);
     console.log(`  ${DIM}Saved:${RESET}    ${cfg.file} ${DIM}(0600)${RESET}`);
-    console.log(`\n  ${DIM}Test it:${RESET}   ${CYAN}mona-agent provider test${RESET}`);
+    console.log(`\n  ${DIM}Test it:${RESET}   ${CYAN}remote-agent provider test${RESET}`);
     console.log(`  ${DIM}Apply:${RESET}    stop/start the daemon — the provider is read at start`);
-    console.log(`  ${DIM}Force local:${RESET} ${CYAN}MONA_TRANSPORT=local mona-agent start${RESET}\n`);
+    console.log(`  ${DIM}Force local:${RESET} ${CYAN}REMOTE_TRANSPORT=local remote-agent start${RESET}\n`);
     return;
   }
 
-  console.log(`\n  ${DIM}Unknown subcommand "${sub}". Try: ${CYAN}mona-agent provider [status|set|unset|test]${RESET}\n`);
+  console.log(`\n  ${DIM}Unknown subcommand "${sub}". Try: ${CYAN}remote-agent provider [status|set|unset|test]${RESET}\n`);
 }
 
 // ── mcp (Model Context Protocol server over stdio) ────────────────
@@ -997,7 +997,7 @@ async function mcpCmd() {
 
 // ── doctor (diagnose the local install) ───────────────────────────
 async function doctorCmd() {
-  console.log(`\n  ${BOLD}mona-agent doctor${RESET}\n`);
+  console.log(`\n  ${BOLD}remote-agent doctor${RESET}\n`);
   const report = await runDoctor();
   console.log(`  ${report.checks.map((c) => `${c.ok ? GREEN + '●' : RED + '✖'}${RESET} ${c.name.padEnd(12)} ${DIM}${c.detail}${RESET}`).join('\n  ')}`);
   console.log(`\n  ${report.healthy ? GREEN + 'All checks passed.' : RED + 'Some checks failed — see above.'}${RESET}\n`);
@@ -1034,6 +1034,6 @@ switch (cmd) {
     help();
     break;
   default:
-    console.error(`\n  Unknown command: ${cmd}\n  Run ${CYAN}mona-agent help${RESET} for usage.\n`);
+    console.error(`\n  Unknown command: ${cmd}\n  Run ${CYAN}remote-agent help${RESET} for usage.\n`);
     process.exit(1);
 }

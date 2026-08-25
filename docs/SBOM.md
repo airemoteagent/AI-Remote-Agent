@@ -1,6 +1,6 @@
 # Software Bill of Materials (SBOM)
 
-The mona-agent client ships with an SBOM in CycloneDX format:
+The remote-agent client ships with an SBOM in CycloneDX format:
 [`sbom.cyclonedx.json`](../sbom.cyclonedx.json).
 
 ## Highlights

@@ -11,7 +11,7 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { auditWrite } from './policy.js';
 
-const DEFAULT_STORE = process.env.MONA_JIT_STORE || join(homedir(), '.mona-agent', 'jit.json');
+const DEFAULT_STORE = process.env.REMOTE_JIT_STORE || join(homedir(), '.remote-agent', 'jit.json');
 const MAX_GRANTS = 1000;
 
 // Role → allowed tools. `*` means any tool. Roles are the only way a grant

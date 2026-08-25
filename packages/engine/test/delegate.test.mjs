@@ -12,7 +12,7 @@ import fs from 'node:fs';
 
 let runSubtasks, buildSubSystemPrompt, MAX_SUBTASKS, Policy, Budget;
 
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-delegate-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-delegate-'));
 
 before(async () => {
   ({ runSubtasks, buildSubSystemPrompt, MAX_SUBTASKS, Policy, Budget } = await import('../src/index.mjs'));

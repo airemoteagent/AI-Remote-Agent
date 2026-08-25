@@ -1,5 +1,5 @@
 /**
- * mona.expert wire contract — the single source of truth for the device  gateway
+ * remoteagent.online wire contract — the single source of truth for the device  gateway
  * WebSocket protocol. The daemon (apps/desktop) and the gateway (apps/gateway)
  * implement this; `test/protocol.test.mjs` fails if they drift apart.
  *

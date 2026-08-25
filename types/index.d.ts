@@ -1,5 +1,5 @@
 /**
- * mona-agent — public API types.
+ * remote-agent — public API types.
  *
  * This is the API contract. Anything not declared here is internal and
  * may change between releases (see docs/STABILITY.md). The runtime stays
@@ -191,7 +191,7 @@ export interface AgentEvent {
 
 // ── Public entry ──────────────────────────────────────────────────
 
-export interface MonaAgentSDK {
+export interface RemoteAgentSDK {
   defineTool(options: DefineToolOptions): Tool;
   createRegistry(): ToolRegistry;
   Policy: Policy;

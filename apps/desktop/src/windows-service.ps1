@@ -1,8 +1,8 @@
 param(
   [Parameter(Mandatory=$true)][ValidateSet('install','uninstall','status','start','stop')][string]$Action,
-  [string]$ServiceName = 'MonaAgent',
-  [string]$DisplayName = 'Mona Agent',
-  [string]$Description = 'Policy-governed Mona AI execution agent',
+  [string]$ServiceName = 'RemoteAgent',
+  [string]$DisplayName = 'Remote Agent',
+  [string]$Description = 'Policy-governed Remote AI execution agent',
   [string]$BinaryPath = '',
   [string]$WorkingDirectory = '',
   [string]$ServiceAccount = 'LocalSystem'
@@ -10,7 +10,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($env:OS -ne 'Windows_NT') { throw 'Windows only' }
-if ($ServiceName -ne 'MonaAgent') { throw 'Invalid service name' }
+if ($ServiceName -ne 'RemoteAgent') { throw 'Invalid service name' }
 # Service account: LocalSystem (default) or one named user account.
 # Only these identities are permitted by the CLI adapter. A credential prompt
 # is intentionally NOT supported inside the service script: never pass an

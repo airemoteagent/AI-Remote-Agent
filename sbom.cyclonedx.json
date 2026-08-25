@@ -7,11 +7,11 @@
     "timestamp": "2026-08-13T00:00:00Z",
     "component": {
       "type": "application",
-      "bom-ref": "pkg:npm/mona-expert@2.1.0",
-      "name": "mona-agent",
+      "bom-ref": "pkg:npm/remote-agent@2.1.0",
+      "name": "remote-agent",
       "version": "2.1.0",
-      "purl": "pkg:npm/mona-expert@2.1.0",
-      "supplier": { "name": "mona.expert" },
+      "purl": "pkg:npm/remote-agent@2.1.0",
+      "supplier": { "name": "remoteagent.online" },
       "licenses": [{ "license": { "id": "MIT" } }]
     }
   },
@@ -26,6 +26,6 @@
     }
   ],
   "dependencies": [
-    { "ref": "pkg:npm/mona-expert@2.1.0", "dependsOn": ["pkg:npm/ws@8.18.0"] }
+    { "ref": "pkg:npm/remote-agent@2.1.0", "dependsOn": ["pkg:npm/ws@8.18.0"] }
   ]
 }

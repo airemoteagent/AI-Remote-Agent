@@ -7,20 +7,20 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 let vector;
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-vector-tool-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-vector-tool-'));
 const WS = path.join(TMP, 'workspace');
 const STORE = path.join(TMP, 'vector-index.json');
 
 before(async () => {
-  process.env.MONA_WORKSPACE = WS;
-  process.env.MONA_VECTOR_STORE = STORE;
+  process.env.REMOTE_WORKSPACE = WS;
+  process.env.REMOTE_VECTOR_STORE = STORE;
   fs.mkdirSync(WS, { recursive: true });
   ({ vector } = await import('../src/tools/vector.js'));
 });
 
 after(() => {
-  delete process.env.MONA_WORKSPACE;
-  delete process.env.MONA_VECTOR_STORE;
+  delete process.env.REMOTE_WORKSPACE;
+  delete process.env.REMOTE_VECTOR_STORE;
 });
 
 describe('tools/vector', () => {

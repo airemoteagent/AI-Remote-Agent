@@ -3,7 +3,7 @@
 Answers to the questions procurement, security and compliance teams ask.
 
 **Where do the models run?**
-Reasoning runs in the cloud (agent.mona.expert) through your own LLM provider
+Reasoning runs in the cloud (remoteagent.online) through your own LLM provider
 API keys (OpenAI, Anthropic, Google, DeepSeek or OpenRouter). Your devices
 never run models and never hold provider keys.
 
@@ -45,11 +45,11 @@ with a realpath-resolved allowlist — chains and pipes re-check every
 segment, `sudo`, redirects and command substitution are rejected. File
 access is confined to a workspace (traversal, symlink and TOCTOU escapes
 rejected; deletes go to trash). Network access is SSRF-safe. On top of
-that, a **local policy file** (`~/.mona-agent/policy.json`) can deny or
+that, a **local policy file** (`~/.remote-agent/policy.json`) can deny or
 gate any tool — and the control plane can never widen it. Every decision
 is written to a hash-chained local audit log and every action is traced
 with full arguments and results. For high-stakes devices, apply
-`mona-agent policy preset strict` (read-only agent) or disable shell
+`remote-agent policy preset strict` (read-only agent) or disable shell
 entirely.
 
 **Can the control plane escalate its own permissions?**
@@ -57,7 +57,7 @@ No. Policy is loaded from the device's disk at startup and is
 authoritative; remote policy updates are rejected by design. A
 compromised control plane can only request what the local policy already
 allows — and every request and denial is audited locally
-(`mona-agent audit verify`).
+(`remote-agent audit verify`).
 
 **How much does it cost?**
 The client is open source (MIT). LLM usage is billed by your own provider

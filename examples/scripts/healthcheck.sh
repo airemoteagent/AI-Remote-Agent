@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# healthcheck.sh — verify a mona-agent installation end to end.
+# healthcheck.sh — verify a remote-agent installation end to end.
 # Usage: bash healthcheck.sh   (exit 0 = ok, 1 = problem found)
 set -u
 
@@ -10,13 +10,13 @@ say()  { printf '%s\n' "$*"; }
 ok()   { printf "  ${GREEN}ok${RESET}  %s\n" "$*"; }
 bad()  { printf "  ${RED}bad${RESET} %s\n" "$*"; fail=1; }
 
-say "mona-agent health check"
+say "remote-agent health check"
 
 # 1. Binary on PATH
-if command -v mona-agent >/dev/null 2>&1; then
-  ok "mona-agent on PATH ($(command -v mona-agent))"
+if command -v remote-agent >/dev/null 2>&1; then
+  ok "remote-agent on PATH ($(command -v remote-agent))"
 else
-  bad "mona-agent not on PATH — run the installer: curl -fsSL https://agent.mona.expert/install.sh | bash"
+  bad "remote-agent not on PATH — run the installer: curl -fsSL https://remoteagent.online/install.sh | bash"
   exit 1
 fi
 
@@ -28,27 +28,27 @@ else
 fi
 
 # 3. Credentials present
-if [ -f "$HOME/.mona-agent/credentials.json" ]; then
+if [ -f "$HOME/.remote-agent/credentials.json" ]; then
   ok "credentials.json present"
 else
-  bad "not logged in — run: mona-agent login"
+  bad "not logged in — run: remote-agent login"
 fi
 
 # 4. Process running
-if pgrep -f "mona-agent.*(start|gui)" >/dev/null 2>&1; then
-  ok "daemon process running (pid $(pgrep -f "mona-agent.*(start|gui)" | head -1))"
+if pgrep -f "remote-agent.*(start|gui)" >/dev/null 2>&1; then
+  ok "daemon process running (pid $(pgrep -f "remote-agent.*(start|gui)" | head -1))"
 else
-  bad "daemon not running — start with: mona-agent start"
+  bad "daemon not running — start with: remote-agent start"
 fi
 
 # 5. Cloud connectivity + key validity
-if mona-agent connect >/tmp/mona-health.$$.log 2>&1; then
+if remote-agent connect >/tmp/remote-agent-health.$$.log 2>&1; then
   ok "cloud connection ok (health, auth, agents)"
 else
   bad "cloud connection failed:"
-  sed 's/^/      /' /tmp/mona-health.$$.log | tail -8
+  sed 's/^/      /' /tmp/remote-agent-health.$$.log | tail -8
 fi
-rm -f /tmp/mona-health.$$.log
+rm -f /tmp/remote-agent-health.$$.log
 
 say ""
 if [ "$fail" -eq 0 ]; then

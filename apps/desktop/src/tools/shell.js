@@ -12,16 +12,16 @@
 // globs and arbitrary $VAR expansion are NOT supported by design.
 //
 // Unrestricted execution is a policy decision (`shell.unsafe: true` in
-// ~/.mona-agent/policy.json), never a one-word env flag. The deprecated
-// MONA_SHELL_UNSAFE=1 still works for one minor version but logs a warning.
+// ~/.remote-agent/policy.json), never a one-word env flag. The deprecated
+// REMOTE_SHELL_UNSAFE=1 still works for one minor version but logs a warning.
 //
-// Set MONA_ALLOW_CMDS to extend the allowlist.
+// Set REMOTE_ALLOW_CMDS to extend the allowlist.
 
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Policy } from '@mona/engine';
+import { Policy } from '@remote-agent/engine';
 
 // ── Platform detection ────────────────────────────────────────────
 const PLATFORM = os.platform(); // 'darwin' | 'linux' | 'win32'
@@ -75,7 +75,7 @@ const DEFAULTS = {
 };
 
 const ALLOW = new Set(
-  (process.env.MONA_ALLOW_CMDS || DEFAULTS[PLATFORM] || DEFAULTS.linux)
+  (process.env.REMOTE_ALLOW_CMDS || DEFAULTS[PLATFORM] || DEFAULTS.linux)
     .split(',').map(s => s.trim()).filter(Boolean)
 );
 
@@ -97,7 +97,7 @@ export function effectiveAllowlist() {
 }
 
 // Unrestricted mode comes from policy (shell.unsafe) — never from a silent
-// parent-process env flag. MONA_SHELL_UNSAFE=1 is a deprecated fallback.
+// parent-process env flag. REMOTE_SHELL_UNSAFE=1 is a deprecated fallback.
 const POLICY = Policy.load();
 const UNSAFE = POLICY.shellUnsafe;
 const UNSAFE_SOURCE = POLICY.unsafeSource;
@@ -105,7 +105,7 @@ const UNSAFE_SOURCE = POLICY.unsafeSource;
 if (UNSAFE && UNSAFE_SOURCE === 'env') {
   // Deprecation warning, printed once.
   process.stderr.write(
-    'mona-agent: MONA_SHELL_UNSAFE=1 is deprecated — set "shell": {"unsafe": true} in ~/.mona-agent/policy.json instead\n'
+    'remote-agent: REMOTE_SHELL_UNSAFE=1 is deprecated — set "shell": {"unsafe": true} in ~/.remote-agent/policy.json instead\n'
   );
 }
 
@@ -560,7 +560,7 @@ export const shell = {
       const first = stages[0];
       const resolved = resolveBinary(first.argv[0]);
       if (resolved.error) return { error: resolved.error, allowed: resolved.allowed };
-      const logFile = path.join(os.homedir(), '.mona-agent', `bg-${Date.now()}.log`);
+      const logFile = path.join(os.homedir(), '.remote-agent', `bg-${Date.now()}.log`);
       fs.mkdirSync(path.dirname(logFile), { recursive: true });
       const out = fs.openSync(logFile, 'a');
       const env = {};

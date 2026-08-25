@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 let RunStore, buildRunEvidence, readAuditEntries, queryAudit;
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-evidence-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-evidence-'));
 const AUDIT = path.join(TMP, 'audit.jsonl');
-process.env.MONA_AUDIT = AUDIT;
+process.env.REMOTE_AUDIT = AUDIT;
 const p = (name) => path.join(TMP, `${name}.json`);
 
 before(async () => ({ RunStore, buildRunEvidence, readAuditEntries, queryAudit } = await import('../src/index.mjs')));

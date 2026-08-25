@@ -91,7 +91,7 @@ Open URLs or run web searches in the default browser.
 ## memory
 
 Persistent memory across tasks and restarts — plain markdown files under
-`~/.mona-agent/memory/` (override with `MONA_MEMORY_DIR`), one file per day.
+`~/.remote-agent/memory/` (override with `REMOTE_MEMORY_DIR`), one file per day.
 
 | Action | Behaviour |
 |---|---|
@@ -105,7 +105,7 @@ and can update them, so the agent gets smarter with each task.
 ## vector
 
 Semantic memory + file index — a dependency-free local vector store
-(`~/.mona-agent/vector-index.json`, override with `MONA_VECTOR_STORE`).
+(`~/.remote-agent/vector-index.json`, override with `REMOTE_VECTOR_STORE`).
 Notes and workspace files are embedded with a deterministic hashing-trick
 embedding (256-dim signed feature vectors) and searched by **meaning**
 (cosine similarity), not just literal keywords.
@@ -229,7 +229,7 @@ GOAL_REASON: <one short sentence>
 round cap is reached without completion the goal becomes `blocked`; if the
 brain crashes mid-round the goal stays active and the next round can resume.
 
-**Durability:** goals persist to `~/.mona-agent/goals.json` (0600, atomic
+**Durability:** goals persist to `~/.remote-agent/goals.json` (0600, atomic
 writes) and survive daemon restarts — the same durable-objective model a
 harness uses. Round outcomes are recorded in the local hash-chained audit
 log (`kind: goal`).
@@ -283,7 +283,7 @@ under `kind: workflow`.
 ## plugin
 
 Dynamic tool plugins, managed at runtime. Third parties ship extra tools as
-packages named `mona-agent-tool-*` (or any directory on `MONA_TOOL_PATH`)
+packages named `remote-agent-tool-*` (or any directory on `REMOTE_TOOL_PATH`)
 that export `defineTool()` descriptors — the agent SDK. They are hot-loaded
 without forking the core.
 
@@ -291,12 +291,12 @@ without forking the core.
 |---|---|
 | `list` | Every tool with source (`builtin`/`plugin`) + policy status |
 | `load <path>` | Discover + register a plugin directory right now |
-| `reload` | Re-run discovery for `MONA_TOOL_PATH` + `node_modules` |
+| `reload` | Re-run discovery for `REMOTE_TOOL_PATH` + `node_modules` |
 | `remove <name>` | Unregister a plugin tool until the next load |
 
 **Security:** a plugin tool is **denied by default** — it runs through the
 same policy choke point as builtins. The owner explicitly allows one in
-`~/.mona-agent/policy.json`:
+`~/.remote-agent/policy.json`:
 
 ```json
 { "tools": { "my.tool": "allow" } }
@@ -309,7 +309,7 @@ advertises loaded plugins to the cloud when it connects.
 Example — load and check a plugin directory:
 
 ```json
-{"tool":"plugin","args":{"action":"load","path":"/opt/mona-tools"}}
+{"tool":"plugin","args":{"action":"load","path":"/opt/remote-agent-tools"}}
 {"tool":"plugin","args":{"action":"list"}}
 ```
 
@@ -320,8 +320,8 @@ so the control plane can enforce `agent_permissions` without probing:
 
 | Field | Meaning |
 |---|---|
-| `allowlist` | Allowed command names (env `MONA_ALLOW_CMDS`, per-OS defaults) |
-| `unsafe` | `true` only when policy `shell.unsafe` is set (or deprecated `MONA_SHELL_UNSAFE=1`) |
+| `allowlist` | Allowed command names (env `REMOTE_ALLOW_CMDS`, per-OS defaults) |
+| `unsafe` | `true` only when policy `shell.unsafe` is set (or deprecated `REMOTE_SHELL_UNSAFE=1`) |
 | `platform` | Detected OS (`darwin` / `linux` / `win32`) |
 | `mode` | `argv` — commands execute as argv arrays, never as a shell string |
 
@@ -338,8 +338,8 @@ Execution model (v2.8+):
   vars); only `$HOME`, `$PATH`, `$USER`, `$LANG`, `$PWD`, `$TMPDIR` expand.
 - Timeouts kill the whole process group; output is capped at 64 KB per
   stream (8 KB returned in tool results).
-- `MONA_SHELL_UNSAFE=1` is deprecated — set
-  `{"shell": {"unsafe": true}}` in `~/.mona-agent/policy.json` instead.
+- `REMOTE_SHELL_UNSAFE=1` is deprecated — set
+  `{"shell": {"unsafe": true}}` in `~/.remote-agent/policy.json` instead.
 
 Blocked patterns (defence-in-depth, always denied): `rm -rf /`, `mkfs`,
 `dd if=`, fork bombs, `sudo`, `shutdown`, `format C:`, `diskpart`, and
@@ -367,7 +367,7 @@ Web research — pure Node, no external dependencies, multi-OS.
   `[{title, url, snippet}]` with real targets extracted from redirect links.
 - `fetch` page → `htmlToText()` — strips scripts/styles/tags, decodes HTML
   entities, caps output at 10 KB.
-- 15 s timeout per request, honest `mona-agent/2.x` user agent.
+- 15 s timeout per request, honest `remote-agent/2.x` user agent.
 
 ## notify
 
@@ -395,13 +395,13 @@ untrusted data, and always stream results.
 
 Skills are user-enableable capability packs (a `SKILL.md` with instructions
 plus optional `tools/*.mjs` helper tools) installed into
-`~/.mona-agent/skills/`. The bundled ones ship with the agent:
+`~/.remote-agent/skills/`. The bundled ones ship with the agent:
 
 ```bash
-mona-agent skills list          # installed skills + enabled state
-mona-agent skills install       # install the bundled skills (idempotent)
-mona-agent skills enable <name> # inject its instructions into the brain
-mona-agent skills disable <name>
+remote-agent skills list          # installed skills + enabled state
+remote-agent skills install       # install the bundled skills (idempotent)
+remote-agent skills enable <name> # inject its instructions into the brain
+remote-agent skills disable <name>
 ```
 
 ### Capability dial (mode)
@@ -409,25 +409,25 @@ mona-agent skills disable <name>
 Instead of tuning skills and policy by hand, set a profile:
 
 ```bash
-mona-agent mode list
-mona-agent mode set minimal   # no skills, strict policy (read-only)
-mona-agent mode set standard  # core skills, shell/browser need approval
-mona-agent mode set full      # all skills, permissive policy + auto-start daemon
+remote-agent mode list
+remote-agent mode set minimal   # no skills, strict policy (read-only)
+remote-agent mode set standard  # core skills, shell/browser need approval
+remote-agent mode set full      # all skills, permissive policy + auto-start daemon
 ```
 
-`mode set` writes `~/.mona-agent/policy.json`, enables exactly the mode's
+`mode set` writes `~/.remote-agent/policy.json`, enables exactly the mode's
 skills and — for `full` — marks the daemon for auto-start.
 
 ### Daemon (background service)
 
 ```bash
-mona-agent daemon status      # service + pid state
-mona-agent daemon install     # launchd (macOS) / systemd (Linux) auto-start
-mona-agent daemon uninstall   # stop + remove
-mona-agent daemon stop        # signal the running daemon to exit
+remote-agent daemon status      # service + pid state
+remote-agent daemon install     # launchd (macOS) / systemd (Linux) auto-start
+remote-agent daemon uninstall   # stop + remove
+remote-agent daemon stop        # signal the running daemon to exit
 ```
 
-Single-instance: `~/.mona-agent/daemon.pid` guards against double-run; stale
+Single-instance: `~/.remote-agent/daemon.pid` guards against double-run; stale
 pid files (after a crash) are cleaned automatically.
 
 Enabled skills' instructions are injected into the agent's context, and their
@@ -437,9 +437,9 @@ tools become callable through the same registry as the built-ins.
 
 The engine checks every tool call against a policy before executing it —
 and the tool registry enforces the same policy for direct commands
-(`mona-agent exec`, dashboard tool calls). Defaults are safe (all built-in
+(`remote-agent exec`, dashboard tool calls). Defaults are safe (all built-in
 tools allowed, destructive shell patterns blocked); an optional
-`~/.mona-agent/policy.json` (or `MONA_POLICY`) tunes it:
+`~/.remote-agent/policy.json` (or `REMOTE_POLICY`) tunes it:
 
 ```json
 {
@@ -457,21 +457,21 @@ tools allowed, destructive shell patterns blocked); an optional
   default-denied)
 - `shell.deny`: extra regex patterns (blocked); `shell.unsafe: true`
   enables unrestricted argv execution (audited — replaces the deprecated
-  `MONA_SHELL_UNSAFE=1` env flag); legacy `approval.patterns` still works
+  `REMOTE_SHELL_UNSAFE=1` env flag); legacy `approval.patterns` still works
 - `rateLimits`: per-tool sliding per-minute window (`*` = default for all)
 - `budget`: daily caps; `0` = unlimited. Levels degrade automatically:
   normal → eco (cheap profile) → critical (minimal) → exhausted (no tasks)
 - `maxSteps`: 2–16 (default 8)
 - `audit`: `false` disables the decision log (not recommended)
 
-Presets (write one to `~/.mona-agent/policy.json`):
+Presets (write one to `~/.remote-agent/policy.json`):
 
 ```bash
-mona-agent policy preset strict      # read-only: shell/net/browser/apps denied
-mona-agent policy preset standard    # shell & browser need approval, rate limits
-mona-agent policy preset permissive  # everything allowed (default behaviour)
-mona-agent policy status             # show the active policy + tool tiers
-mona-agent policy explain <tool>     # show which rule decides a call
+remote-agent policy preset strict      # read-only: shell/net/browser/apps denied
+remote-agent policy preset standard    # shell & browser need approval, rate limits
+remote-agent policy preset permissive  # everything allowed (default behaviour)
+remote-agent policy status             # show the active policy + tool tiers
+remote-agent policy explain <tool>     # show which rule decides a call
 ```
 
 The policy file is **local and authoritative** — it loads from disk at
@@ -480,18 +480,18 @@ startup and the control plane can never modify or widen it.
 ## Audit log (engine)
 
 Every policy decision (tool call, shell check, rate-limit denial) is
-appended to `~/.mona-agent/audit.jsonl` (0600) as a hash-chained,
+appended to `~/.remote-agent/audit.jsonl` (0600) as a hash-chained,
 append-only JSONL stream — `h_n = sha256(h_{n-1} || entry)`. Tampering
 breaks the chain:
 
 ```bash
-mona-agent audit tail      # last 20 decisions
-mona-agent audit verify    # verify the whole chain (exit 1 on tampering)
+remote-agent audit tail      # last 20 decisions
+remote-agent audit verify    # verify the whole chain (exit 1 on tampering)
 ```
 
 ## Budget (engine)
 
-Daily token/cost usage is recorded in `~/.mona-agent/budget.json` (0600) and
+Daily token/cost usage is recorded in `~/.remote-agent/budget.json` (0600) and
 survives restarts. When a cap is hit the daemon answers new tasks with a
 clear message instead of burning spend — and the dashboard shows the level
 in the device stats.
@@ -499,7 +499,7 @@ in the device stats.
 ## Memory store (engine)
 
 Alongside the markdown memory tool, the engine keeps a structured store
-(`~/.mona-agent/memory-store.json`): deduplicated near-identical entries,
+(`~/.remote-agent/memory-store.json`): deduplicated near-identical entries,
 TTL expiry (30 days default), capped at 500 entries, and scored recall —
 now **hybrid vector recall**: cosine similarity over hashed feature vectors
 (0.7) + recency decay (0.2) + hit boost (0.1). The daemon auto-remembers

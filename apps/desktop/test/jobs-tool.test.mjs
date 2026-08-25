@@ -2,7 +2,7 @@
 //
 // Uses REAL short-lived node child processes so the whole spawn → capture →
 // finalise path is exercised (same style as the security suite). HOME is
-// isolated so no real user config is touched, and MONA_ALLOW_CMDS grants
+// isolated so no real user config is touched, and REMOTE_ALLOW_CMDS grants
 // node/sleep for the fixtures only — the allowlist gate itself is still
 // verified by the disallowed-binary and blocked-pattern cases.
 
@@ -12,11 +12,11 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-jobs-'));
+const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-jobs-'));
 process.env.HOME = FAKE_HOME;
-process.env.MONA_WORKSPACE = path.join(FAKE_HOME, 'workspace');
+process.env.REMOTE_WORKSPACE = path.join(FAKE_HOME, 'workspace');
 // Grant the fixtures only — the default allowlist has no `node`.
-process.env.MONA_ALLOW_CMDS = 'echo,node,sleep,cat';
+process.env.REMOTE_ALLOW_CMDS = 'echo,node,sleep,cat';
 
 const { jobs } = await import('../src/tools/jobs.js');
 

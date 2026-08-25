@@ -9,7 +9,7 @@
 //   goal resume <id>                     → enqueue the next round now
 //   goal abort <id>                      → stop (status: aborted)
 //
-// Goals persist to ~/.mona-agent/goals.json (0600) — they survive daemon
+// Goals persist to ~/.remote-agent/goals.json (0600) — they survive daemon
 // restarts. Each round runs as a normal queued task (serial — steps never
 // interleave with user tasks), seeded with the objective + every previous
 // round's summary, and must end with a GOAL_COMPLETE marker. Starting and
@@ -17,7 +17,7 @@
 // configureGoalRunner()); status/list/abort are pure store operations and
 // work anywhere.
 
-import { GoalStore } from '@mona/engine';
+import { GoalStore } from '@remote-agent/engine';
 
 const MAX_ROUNDS = 16;
 const MAX_OBJECTIVE_LEN = 1000;
@@ -30,7 +30,7 @@ export function configureGoalRunner(runner) {
     : null;
 }
 
-// One store per process; tests override the path via MONA_GOALS_STORE.
+// One store per process; tests override the path via REMOTE_GOALS_STORE.
 const store = new GoalStore({});
 
 function validateObjective(objective) {

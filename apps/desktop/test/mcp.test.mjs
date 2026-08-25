@@ -6,20 +6,20 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-mcp-'));
+const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-mcp-'));
 process.env.HOME = FAKE_HOME;
-process.env.MONA_WORKSPACE = path.join(FAKE_HOME, 'workspace');
-fs.mkdirSync(process.env.MONA_WORKSPACE, { recursive: true });
-process.env.MONA_POLICY = path.join(FAKE_HOME, '.mona-agent', 'policy.json');
-fs.mkdirSync(path.dirname(process.env.MONA_POLICY), { recursive: true });
-fs.writeFileSync(process.env.MONA_POLICY, JSON.stringify({ version: 1, tools: { shell: 'deny', net: 'deny' } }));
+process.env.REMOTE_WORKSPACE = path.join(FAKE_HOME, 'workspace');
+fs.mkdirSync(process.env.REMOTE_WORKSPACE, { recursive: true });
+process.env.REMOTE_POLICY = path.join(FAKE_HOME, '.remote-agent', 'policy.json');
+fs.mkdirSync(path.dirname(process.env.REMOTE_POLICY), { recursive: true });
+fs.writeFileSync(process.env.REMOTE_POLICY, JSON.stringify({ version: 1, tools: { shell: 'deny', net: 'deny' } }));
 
 const { tools: allowRegistry } = await import('../src/tools/index.js');
 const { createMcpServer, argsToSchema, toolToMcpSchema, runMcpHttpServer } = await import('../src/transport/mcp.js');
 const allowServer = createMcpServer({ registry: allowRegistry });
 
 describe('MCP transport', () => {
-  it('argsToSchema converts mona freeform args to JSON Schema', () => {
+  it('argsToSchema converts remote-agent freeform args to JSON Schema', () => {
     const s = argsToSchema({ cmd: 'string — the command', verbose: 'boolean — flag' });
     assert.equal(s.type, 'object');
     assert.deepEqual(s.properties.cmd, { type: 'string', description: 'the command' });
@@ -31,7 +31,7 @@ describe('MCP transport', () => {
     const r = await allowServer.handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
     assert.equal(r.id, 1);
     assert.equal(r.result.protocolVersion, '2024-11-05');
-    assert.equal(r.result.serverInfo.name, 'mona-agent');
+    assert.equal(r.result.serverInfo.name, 'remote-agent');
     assert.match(r.result.serverInfo.version, /^\d+\.\d+\.\d+/);
     assert.ok(r.result.capabilities.tools);
   });
@@ -95,7 +95,7 @@ describe('MCP transport', () => {
       const info = await fetch('http://127.0.0.1:4398/');
       assert.equal(info.status, 200);
       const infoJ = await info.json();
-      assert.equal(infoJ.name, 'mona-agent');
+      assert.equal(infoJ.name, 'remote-agent');
 
       const r = await fetch('http://127.0.0.1:4398/mcp', {
         method: 'POST',

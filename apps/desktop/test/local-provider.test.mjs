@@ -10,11 +10,11 @@ import fs from 'node:fs';
 
 let transport;
 
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-local-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-local-'));
 const PROVIDER_FILE = path.join(TMP, 'provider.json');
 
 before(async () => {
-  process.env.MONA_PROVIDER_FILE = PROVIDER_FILE;
+  process.env.REMOTE_PROVIDER_FILE = PROVIDER_FILE;
   transport = await import('../src/transport/local.js');
 });
 
@@ -105,12 +105,12 @@ before(async () => {
 
 after(() => {
   server?.close();
-  delete process.env.MONA_PROVIDER_FILE;
-  delete process.env.MONA_PROVIDER;
-  delete process.env.MONA_PROVIDER_KEY;
-  delete process.env.MONA_PROVIDER_URL;
-  delete process.env.MONA_PROVIDER_MODEL;
-  delete process.env.MONA_TRANSPORT;
+  delete process.env.REMOTE_PROVIDER_FILE;
+  delete process.env.REMOTE_PROVIDER;
+  delete process.env.REMOTE_PROVIDER_KEY;
+  delete process.env.REMOTE_PROVIDER_URL;
+  delete process.env.REMOTE_PROVIDER_MODEL;
+  delete process.env.REMOTE_TRANSPORT;
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
@@ -192,11 +192,11 @@ describe('transport/local — config', () => {
   });
 
   it('env overrides file', () => {
-    process.env.MONA_PROVIDER = 'ollama';
+    process.env.REMOTE_PROVIDER = 'ollama';
     const cfg = transport.loadProviderConfig();
     assert.equal(cfg.provider, 'ollama');
     assert.equal(cfg.baseUrl, 'http://127.0.0.1:11434');
-    delete process.env.MONA_PROVIDER;
+    delete process.env.REMOTE_PROVIDER;
   });
 
   it('rejects unknown provider and missing key', () => {
@@ -221,7 +221,7 @@ describe('transport/local — config', () => {
   });
 
   it('transportMode + requireLocalProvider', () => {
-    assert.equal(transport.transportMode({ MONA_TRANSPORT: 'local' }), 'local');
+    assert.equal(transport.transportMode({ REMOTE_TRANSPORT: 'local' }), 'local');
     assert.equal(transport.transportMode({}), 'auto');
     assert.throws(() => transport.requireLocalProvider(), /no provider is configured/);
   });

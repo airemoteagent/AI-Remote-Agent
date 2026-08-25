@@ -11,10 +11,10 @@ and documented in `types/index.d.ts`. Anything else in the package is
 ## Current public surface (v2.9)
 
 ```js
-import { defineTool, isTool } from 'mona-agent';
-import { ToolRegistry, discoverExternalTools } from 'mona-agent';
-import { tools } from 'mona-agent';
-import { VERSION, compareVersions, isUpdateAvailable } from 'mona-agent';
+import { defineTool, isTool } from 'remote-agent';
+import { ToolRegistry, discoverExternalTools } from 'remote-agent';
+import { tools } from 'remote-agent';
+import { VERSION, compareVersions, isUpdateAvailable } from 'remote-agent';
 ```
 
 ### `defineTool(options)` → `Tool`
@@ -42,8 +42,8 @@ The declarative tool SDK. Validates and deep-freezes a descriptor:
 `run(name, args)`, `toSchemas({ dialect })` → OpenAI/Anthropic.
 
 ### `discoverExternalTools(paths?)`
-Discovers `mona-agent-tool-*` packages from `node_modules` (manifest
-field `monaAgent.tools`) and extra paths.
+Discovers `remote-agent-tool-*` packages from `node_modules` (manifest
+field `remoteAgent.tools`) and extra paths.
 
 ### Version helpers
 `VERSION`, `compareVersions(a, b)`, `isUpdateAvailable(installed, latest)`.
@@ -55,10 +55,10 @@ field `monaAgent.tools`) and extra paths.
 - **Patch**: internal changes, bug fixes, tool behavior behind the same
   contract.
 - Deprecations get a warning for **one minor version** before removal
-  (example: `MONA_SHELL_UNSAFE` env var → `policy.json shell.unsafe`).
+  (example: `REMOTE_SHELL_UNSAFE` env var → `policy.json shell.unsafe`).
 
 ## Policy file
 
-`~/.mona-agent/policy.json` is user-editable configuration, not API —
+`~/.remote-agent/policy.json` is user-editable configuration, not API —
 but the **format is versioned** (`version: 1` tier map, `version: 2`
 rules). The v1 shape keeps working; see `docs/POLICY.md`.

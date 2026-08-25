@@ -11,7 +11,7 @@ const PLATFORM = os.platform();
 /** Build the platform-specific notification command. Exported for tests. */
 export function buildNotifyCmd(title, body, platform = PLATFORM) {
   // Strip shell metacharacters that could break out of the command context.
-  const t = String(title || 'Mona').replace(/["'\\`]/g, '').slice(0, 100);
+  const t = String(title || 'Remote').replace(/["'\\`]/g, '').slice(0, 100);
   const b = String(body || '').replace(/["'\\`]/g, '').slice(0, 300);
   if (platform === 'darwin') {
     return `osascript -e 'display notification "${b}" with title "${t}"'`;

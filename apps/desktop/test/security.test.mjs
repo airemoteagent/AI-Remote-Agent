@@ -17,14 +17,14 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 // ── Isolate HOME so nothing touches the real user config ─────────
-const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-sec-'));
+const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-sec-'));
 process.env.HOME = FAKE_HOME;
-process.env.MONA_WORKSPACE = path.join(FAKE_HOME, 'workspace');
+process.env.REMOTE_WORKSPACE = path.join(FAKE_HOME, 'workspace');
 
 const { shell, security: shellSecurity } = await import('../src/tools/shell.js');
 const { files } = await import('../src/tools/files.js');
 const { net, _internals } = await import('../src/tools/net.js');
-const { Policy, auditVerify } = await import('@mona/engine');
+const { Policy, auditVerify } = await import('@remote-agent/engine');
 
 const WS = () => path.join(FAKE_HOME, 'workspace');
 
@@ -84,20 +84,20 @@ describe('security/shell — argv execution', () => {
   });
 
   it('does not expand unknown env vars (secret leak)', async () => {
-    process.env.MONA_SECRET_TEST = 'super-secret-value';
-    const r = await shell.run({ cmd: 'echo $MONA_SECRET_TEST' });
+    process.env.REMOTE_SECRET_TEST = 'super-secret-value';
+    const r = await shell.run({ cmd: 'echo $REMOTE_SECRET_TEST' });
     assert.equal(r.exitCode, 0);
-    assert.ok(r.stdout.includes('$MONA_SECRET_TEST'));
+    assert.ok(r.stdout.includes('$REMOTE_SECRET_TEST'));
     assert.ok(!r.stdout.includes('super-secret-value'));
-    delete process.env.MONA_SECRET_TEST;
+    delete process.env.REMOTE_SECRET_TEST;
   });
 
   it('does not leak parent env into children', async () => {
-    process.env.MONA_LEAK_TEST = 'leaky';
+    process.env.REMOTE_LEAK_TEST = 'leaky';
     const r = await shell.run({ cmd: 'env' });
     assert.equal(r.exitCode, 0);
-    assert.ok(!r.stdout.includes('MONA_LEAK_TEST'), 'child env must be scrubbed');
-    delete process.env.MONA_LEAK_TEST;
+    assert.ok(!r.stdout.includes('REMOTE_LEAK_TEST'), 'child env must be scrubbed');
+    delete process.env.REMOTE_LEAK_TEST;
   });
 
   it('supports && chains (each segment allowlisted)', async () => {
@@ -194,7 +194,7 @@ describe('security/files — sandbox containment', () => {
   });
 
   it('denies symlink escape out of workspace', async () => {
-    const outside = path.join(os.tmpdir(), `mona-outside-${Date.now()}`);
+    const outside = path.join(os.tmpdir(), `remote-agent-outside-${Date.now()}`);
     fs.writeFileSync(outside, 'secret');
     const link = path.join(ws, 'escape-link');
     try { fs.symlinkSync(outside, link); } catch { return; } // no symlink perms → skip

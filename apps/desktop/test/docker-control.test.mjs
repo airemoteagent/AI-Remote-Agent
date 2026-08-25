@@ -8,8 +8,8 @@ import { WebSocketServer } from 'ws';
 // Start the fake platform first, then import ControlChannel with the env pointing at it.
 const server = new WebSocketServer({ port: 0 });
 const port = server.address().port;
-process.env.MONA_CLOUD = `http://127.0.0.1:${port}`;
-process.env.MONA_CLOUD_WS = `ws://127.0.0.1:${port}/ws`;
+process.env.REMOTE_CLOUD = `http://127.0.0.1:${port}`;
+process.env.REMOTE_CLOUD_WS = `ws://127.0.0.1:${port}/ws`;
 const { ControlChannel } = await import('../src/control.js');
 
 const received = [];
@@ -53,7 +53,7 @@ describe('docker platform protocol', () => {
     assert.ok(reg);
     assert.equal(reg.type, 'register');
     assert.ok(reg.name);
-    assert.ok(reg.model.includes('mona-agent'));
+    assert.ok(reg.model.includes('remote-agent'));
     ch.close();
   });
 

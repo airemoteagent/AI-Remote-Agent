@@ -1,4 +1,4 @@
-# Mona Agent: Product and Engineering Goals
+# Remote Agent: Product and Engineering Goals
 
 > Status: working strategy, not a promise of completed functionality. The enterprise engine has durable run/device/JIT/upgrade/evidence primitives, SIEM NDJSON export, a JSON-safe admin API, signed plugin manifests, and a signed marketplace-index trust primitive. Production signing certificates, an authenticated admin-console transport/UI, hosted marketplace distribution, and cross-platform acceptance infrastructure remain operational work outside this repository.
 >
@@ -6,7 +6,7 @@
 
 ## North star
 
-Mona should become **the trusted execution and governance layer for AI-operated work**: AI may inspect and act across laptops, servers, cloud infrastructure, and business systems, while local policy, human approval, verification, and an attributable audit trail remain authoritative.
+Remote should become **the trusted execution and governance layer for AI-operated work**: AI may inspect and act across laptops, servers, cloud infrastructure, and business systems, while local policy, human approval, verification, and an attributable audit trail remain authoritative.
 
 This is deliberately stronger and more defensible than positioning the product as a general computer assistant. The repository already has a credible foundation: a thin device agent, a cloud control path, bounded execution, sandboxed tools, policy checks, memory, scheduling, multi-device claiming, local/BYO execution paths, and streamed auditability. The work now is to convert those mechanisms into a focused product with durable enterprise trust and measurable outcomes.
 
@@ -14,11 +14,11 @@ This is deliberately stronger and more defensible than positioning the product a
 
 The repository is not yet a complete enterprise control plane or a finished general-purpose agent framework. Some capabilities are shipped, some are mid-migration, and some are roadmap claims. In particular, signed command/replay protection, stronger deny-by-default policy, complete tool output validation, robust subprocess isolation/cancellation, unified transport adapters, general task recovery, and enterprise fleet lifecycle need explicit implementation and verification before they should be marketed as complete.
 
-The first commercial wedge should be **AI IT operations**, with AI SRE as the adjacent expansion. This uses what Mona already does well—local diagnostics and controlled remediation—without requiring the entire general-purpose agent market to be won at once.
+The first commercial wedge should be **AI IT operations**, with AI SRE as the adjacent expansion. This uses what Remote already does well—local diagnostics and controlled remediation—without requiring the entire general-purpose agent market to be won at once.
 
 ## Goal 1 — Prove one painful outcome: governed AI IT operations
 
-**Objective:** Make Mona reliably resolve a narrow set of endpoint and service incidents with less human effort and a clear safety record.
+**Objective:** Make Remote reliably resolve a narrow set of endpoint and service incidents with less human effort and a clear safety record.
 
 **Initial runbooks:** disk full, high CPU, service down, certificate expiry, broken VPN, developer-environment setup, and safe device onboarding/offboarding.
 

@@ -1,14 +1,14 @@
 {
-  "name": "mona-agent-tool-hello",
+  "name": "remote-agent-tool-hello",
   "version": "1.0.0",
-  "description": "Example mona-agent tool package — install via `npm i ./examples/tools/hello` once mona-agent is published to npm.",
+  "description": "Example remote-agent tool package — install via `npm i ./examples/tools/hello` once remote-agent is published to npm.",
   "type": "module",
   "main": "index.js",
-  "monaAgent": {
+  "remoteAgent": {
     "tools": ["hello"]
   },
   "peerDependencies": {
-    "mona-agent": ">=2.8.0"
+    "remote-agent": ">=2.8.0"
   },
   "license": "MIT"
 }

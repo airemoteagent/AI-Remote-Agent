@@ -6,13 +6,13 @@
 //     (dynamic plugins) — lifted to the runtime shape automatically.
 //
 // Plugin tools are hot-loadable at runtime (discoverExternalTools reads
-// node_modules/mona-agent-tool-* and MONA_TOOL_PATH) and are gated by the
+// node_modules/remote-agent-tool-* and REMOTE_TOOL_PATH) and are gated by the
 // SAME policy choke point as builtins: an unknown tool is denied by default,
 // and an owner explicitly allows a plugin with a policy rule
 // ("tools": {"my.tool": "allow"}).
 
 import { log } from '../log.js';
-import { Policy } from '@mona/engine';
+import { Policy } from '@remote-agent/engine';
 import { isTool } from './define.js';
 import { discoverExternalTools } from './registry.js';
 import { sysinfo } from './sysinfo.js';
@@ -51,14 +51,14 @@ function liftDescriptor(tool) {
     run:         async (args, signal) => tool.handler(args, {
       signal,
       logger: log,
-      workspace: process.env.MONA_WORKSPACE || process.cwd(),
+      workspace: process.env.REMOTE_WORKSPACE || process.cwd(),
       invoke: (n, i) => tools.run(n, i),
     }),
   };
 }
 
 function envToolPaths() {
-  return String(process.env.MONA_TOOL_PATH || '')
+  return String(process.env.REMOTE_TOOL_PATH || '')
     .split(',').map((s) => s.trim()).filter(Boolean);
 }
 
@@ -123,8 +123,8 @@ class ToolRegistry {
   }
 
   /**
-   * Discover + register dynamic plugins (node_modules/mona-agent-tool-*
-   * plus extra dirs and MONA_TOOL_PATH). Hot-loadable at runtime.
+   * Discover + register dynamic plugins (node_modules/remote-agent-tool-*
+   * plus extra dirs and REMOTE_TOOL_PATH). Hot-loadable at runtime.
    * @returns {Promise<number>} tools loaded
    */
   async loadExternalTools(extraPaths = []) {

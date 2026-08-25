@@ -12,7 +12,7 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { auditWrite } from './policy.js';
 
-const DEFAULT_STORE = process.env.MONA_DEVICES_STORE || join(homedir(), '.mona-agent', 'devices.json');
+const DEFAULT_STORE = process.env.REMOTE_DEVICES_STORE || join(homedir(), '.remote-agent', 'devices.json');
 const MAX_DEVICES = 10000;
 
 export const DEVICE_HEALTH = Object.freeze(['online', 'degraded', 'offline']);
@@ -25,7 +25,7 @@ export function hashCredential(secret) {
   return createHash('sha256').update(String(secret ?? '')).digest('hex');
 }
 
-const IDENTITY_CONTEXT = 'mona-device-identity-v1';
+const IDENTITY_CONTEXT = 'remote-agent-device-identity-v1';
 const CREDENTIAL_BYTES = 32;
 
 function canonical(value) {

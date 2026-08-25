@@ -1,7 +1,7 @@
 # ISO/IEC 27001 Annex A — Control Mapping
 
-This mapping supports organizations building an ISMS around the mona-agent
-deployment. "Implemented by mona-agent/platform" means the control exists in
+This mapping supports organizations building an ISMS around the remote-agent
+deployment. "Implemented by remote-agent/platform" means the control exists in
 the product; "operator" means the adopting organization provides it.
 
 ## A.5 — Information security policies
@@ -33,7 +33,7 @@ the product; "operator" means the adopting organization provides it.
 - **A.12.4 Logging and monitoring** — full audit log (messages, brain steps,
   tool calls, token usage, cost, latency), live event stream, trace endpoint
   per run; device-side hash-chained policy-decision log with integrity
-  verification (`mona-agent audit verify`).
+  verification (`remote-agent audit verify`).
 - **A.12.5 Control of operational software** — versioned, tagged releases;
   update via daemon restart; changelog maintained.
 - **A.12.6 Technical vulnerability management** — SECURITY.md disclosure

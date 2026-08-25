@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 let DeviceRegistry, UpgradeOrchestrator, auditVerify;
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mona-upgrade-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-agent-upgrade-'));
 const AUDIT = path.join(TMP, 'audit.jsonl');
-process.env.MONA_AUDIT = AUDIT;
+process.env.REMOTE_AUDIT = AUDIT;
 const storePath = (name) => path.join(TMP, `${name}.json`);
 
 before(async () => ({ DeviceRegistry, UpgradeOrchestrator, auditVerify } = await import('../src/index.mjs')));
