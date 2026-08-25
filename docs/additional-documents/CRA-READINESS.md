@@ -18,7 +18,7 @@ obligations below are documented so operators can show readiness end-to-end.
 | CRA requirement | Implementation |
 |---|---|
 | Security by design & default | No inbound ports, least-privilege tools, secure defaults, no credentials on devices |
-| No known exploitable vulnerabilities at release | Automated test suite (unit + 58-case red-team suite), dependency audit in CI; patched releases published on GitHub |
+| No known exploitable vulnerabilities at release | Automated test suite (451 tests incl. security red-team suite), dependency audit in CI; patched releases published on GitHub |
 | Secure default configuration | Allowlist-based argv shell execution (no string-to-shell), workspace-confined file access with TOCTOU guards, SSRF-safe networking, local policy with safe defaults |
 | Protection against unauthorized access | Device key authentication (revocable per device), TLS 1.2+, AES-256-GCM encrypted keys |
 | Data minimization | Only task text, tool results and device metrics leave the device; provider keys never reach devices |

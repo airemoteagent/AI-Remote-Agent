@@ -1,5 +1,10 @@
 # Compliance & Standards Readiness
 
+> **Canonical entry point:** `docs/COMPLIANCE.md` and the master index
+> `docs/COMPLIANCE-MATRIX.md`. This document is the framework-alignment summary;
+> detailed mappings live in the sibling documents of this folder and in
+> `docs/IEC-62443-4-1.md`, `docs/IEC-62443-4-2.md`, `docs/CRA-COMPLIANCE.md`.
+
 remote-agent is the open-source client for the remoteagent.online cloud. This document
 summarizes how the architecture maps to common compliance frameworks. Detailed
 mappings live in the sibling documents of this folder.

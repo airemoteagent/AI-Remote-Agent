@@ -57,7 +57,7 @@ verify and where the evidence lives.
 - [ ] Release tags pinned; changelog reviewed before rollout.
 - [ ] Staging device tests a new version before fleet rollout.
 - [ ] Red-team suite green on staging: `npm test` (includes
-      `test/security.test.mjs` — 58 adversarial cases).
+      `test/security.test.mjs` — adversarial red-team cases).
 
 ## Evidence matrix
 

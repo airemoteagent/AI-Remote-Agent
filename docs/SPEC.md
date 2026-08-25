@@ -1,5 +1,10 @@
 # SPEC — remote-agent → Enterprise Agent Framework
 
+> **Deprecated / historical.** This build specification predates v4.0.0 and
+> describes the v2.x transition. The shipped capability status and the current
+> roadmap now live in `README.md` (capability table) and
+> `docs/COMPLIANCE-ROADMAP.md`. Retained for historical reference only.
+
 > Status: **proposed roadmap** · Owner: implementing agent · Target: v2.0.0+
 > This document is the build specification. Work packages ship in order,
 > one PR each, each independently green and revertible. Nothing below is

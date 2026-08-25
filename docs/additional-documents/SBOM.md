@@ -17,7 +17,7 @@ implemented in this repository with Node built-ins.
 
 | Component | Purpose |
 |---|---|
-| node:test | Test runner (162 tests incl. 58-case red-team suite, no external test deps) |
+| node:test | Test runner (451 tests incl. security red-team suite, no external test deps) |
 | npm workspaces | Monorepo layout (packages/engine, packages/protocol, apps/desktop) |
 
 ## Server-side (operated by the platform)

@@ -27,7 +27,7 @@ general-purpose models itself.
 | AI output is distinguishable | Chat responses are marked `assistant` in the conversation model; no synthetic content is presented as human |
 | Documentation | This page + [COMPLIANCE.md](COMPLIANCE.md) + [SECURITY.md](../SECURITY.md) |
 | Human oversight | Every tool call is visible in the activity feed before, during and after execution; the user can stop the agent at any time; shell actions are argv-based and allowlisted by default, with policy presets for stricter oversight |
-| Record-keeping | Full audit log of tasks, tool calls, LLM calls, and results (`mona_audit_log`, `mona_messages`) + hash-chained local decision log (`~/.remote-agent/audit.jsonl`) |
+| Record-keeping | Full audit log of tasks, tool calls, LLM calls, and results (audit log, messages) + hash-chained local decision log (`~/.remote-agent/audit.jsonl`) |
 | Traceability | Every run has a `run_id`; device metrics are snapshotted with history |
 
 ## Safety measures

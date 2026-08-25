@@ -8,7 +8,7 @@ Anything exported from `apps/desktop/src/index.js` is stable, versioned,
 and documented in `types/index.d.ts`. Anything else in the package is
 **internal** and may change between releases without notice.
 
-## Current public surface (v2.9)
+## Current public surface (v4.0.0)
 
 ```js
 import { defineTool, isTool } from 'remote-agent';

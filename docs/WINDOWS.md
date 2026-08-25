@@ -26,7 +26,7 @@ Support claims are validated against Microsoft's published lifecycle data at rel
 ```powershell
 irm https://remoteagent.online/install.ps1 | iex               # main branch
 irm https://remoteagent.online/install.ps1 -OutFile install.ps1
-.\install.ps1 -Version v2.11.0                               # pinned release
+.\install.ps1 -Version v4.0.0                               # pinned release
 ```
 
 Release-tag installs download the exact release asset and fail closed unless it verifies against one valid matching `SHA256SUMS` entry. Branch installs are unversioned and unverified by design.
