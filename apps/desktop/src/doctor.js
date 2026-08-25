@@ -116,3 +116,15 @@ export function formatDoctor({ checks, healthy }) {
   lines.push(healthy ? 'All checks passed.' : 'Some checks failed — see above.');
   return lines.join('\n');
 }
+
+/**
+ * Machine-readable report for automation and CI (`remote-agent doctor --json`).
+ * Returns a plain object that round-trips through JSON unchanged.
+ */
+export function formatDoctorJson({ checks, healthy }) {
+  return {
+    version: VERSION,
+    healthy,
+    checks: checks.map((c) => ({ name: c.name, ok: c.ok, detail: c.detail })),
+  };
+}

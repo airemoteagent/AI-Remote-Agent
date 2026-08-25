@@ -20,6 +20,7 @@ import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadCreds, saveCreds, requireCreds, CLOUD, DEFAULTS, PATHS } from '../src/config.js';
+import { pingPresence, startPresence, stopPresence } from '../src/presence.js';
 import { VERSION, isUpdateAvailable } from '../src/version.js';
 import { checkForUpdates, applyUpdate } from '../src/update.js';
 import { verifyKey } from '../src/cloud.js';
@@ -34,9 +35,14 @@ import { daemonStatus, daemonInstall, daemonUninstall, alreadyRunning, stopRunni
 import { SkillsManager } from '../src/skills.js';
 import { loadProviderConfig, saveProviderConfig, removeProviderConfig, PROVIDERS, providerTest, pricesFor } from '../src/transport/local.js';
 import { runMcpServer, runMcpHttpServer } from '../src/transport/mcp.js';
-import { runDoctor, formatDoctor } from '../src/doctor.js';
+import { runDoctor, formatDoctor, formatDoctorJson } from '../src/doctor.js';
 
 const [cmd, ...args] = process.argv.slice(2);
+
+// Anonymous install-presence heartbeat: register this install on the very
+// first run and keep the "waiting to pair" signal fresh while unpaired.
+// Fire-and-forget — never blocks a command, never logs.
+void pingPresence();
 
 // ── ANSI constants ────────────────────────────────────────────────
 const BOLD  = '\x1b[1m';
@@ -72,6 +78,7 @@ async function login() {
   try {
     const info = await verifyKey(apiKey);
     const path = saveCreds({ apiKey, agentId: info.agentId });
+    stopPresence(); // paired — stop the anonymous heartbeat
 
     console.log(`${GREEN}OK${RESET}`);
     console.log(`\n  ${DIM}Agent:${RESET}  ${info.agentId || '(pending)'}`);
@@ -336,6 +343,10 @@ async function policyCmd() {
       if (eq > 0) toolArgs[args[i].slice(0, eq)] = args[i].slice(eq + 1);
     }
     const e = p.explain(toolName, toolArgs);
+    if (args.includes('--json')) {
+      console.log(JSON.stringify({ tool: toolName, tier: e.tier, matchedRule: e.matchedRule, decision: e.decision, rateLimited: Boolean(e.rateLimited) }, null, 2));
+      return;
+    }
     console.log(`\n  ${BOLD}remote-agent policy explain${RESET}\n`);
     console.log(`  ${DIM}Tool:${RESET}      ${toolName}`);
     console.log(`  ${DIM}Decision:${RESET}  ${e.tier === 'allow' ? GREEN + 'allow' : e.tier === 'confirm' ? YELLOW + 'confirm' : RED + 'deny'}${RESET}`);
@@ -415,7 +426,11 @@ async function gui() {
   const daemon = creds ? new AgentDaemon(creds) : null;
   const dashboard = new Dashboard(daemon, { setup: !creds });
 
+  // Unpaired → keep the anonymous "waiting to pair" heartbeat alive.
+  if (!creds) startPresence();
+
   const stop = () => {
+    stopPresence();
     dashboard.stop();
     daemon?.close();
     process.exit(0);
@@ -997,8 +1012,13 @@ async function mcpCmd() {
 
 // ── doctor (diagnose the local install) ───────────────────────────
 async function doctorCmd() {
-  console.log(`\n  ${BOLD}remote-agent doctor${RESET}\n`);
   const report = await runDoctor();
+  if (args.includes('--json')) {
+    console.log(JSON.stringify(formatDoctorJson(report), null, 2));
+    if (!report.healthy) process.exitCode = 1;
+    return;
+  }
+  console.log(`\n  ${BOLD}remote-agent doctor${RESET}\n`);
   console.log(`  ${report.checks.map((c) => `${c.ok ? GREEN + '●' : RED + '✖'}${RESET} ${c.name.padEnd(12)} ${DIM}${c.detail}${RESET}`).join('\n  ')}`);
   console.log(`\n  ${report.healthy ? GREEN + 'All checks passed.' : RED + 'Some checks failed — see above.'}${RESET}\n`);
   if (!report.healthy) process.exitCode = 1;

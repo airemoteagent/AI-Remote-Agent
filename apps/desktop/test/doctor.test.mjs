@@ -54,6 +54,19 @@ describe('doctor checks', () => {
     assert.match(text, /All checks passed\./);
   });
 
+  it('formatDoctorJson emits a machine-readable report', async () => {
+    const report = await doctor.runDoctor({
+      fetcher: async () => ({ status: 200 }),
+      skipUpdate: true,
+      nodeVersion: 'v22.0.0',
+    });
+    const json = doctor.formatDoctorJson(report);
+    assert.equal(typeof json.healthy, 'boolean');
+    assert.ok(Array.isArray(json.checks));
+    assert.ok(json.checks.every((c) => typeof c.name === 'string' && typeof c.ok === 'boolean' && typeof c.detail === 'string'));
+    assert.equal(JSON.parse(JSON.stringify(json)).healthy, json.healthy);
+  });
+
   it('audit verify failure does not crash the report', async () => {
     const report = await doctor.runDoctor({
       fetcher: async () => { throw new Error('down'); },
