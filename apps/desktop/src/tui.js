@@ -316,13 +316,24 @@ export class Dashboard {
 
   // ── Input handling ──────────────────────────────────────────────
   #onKey(key) {
-    // Input mode (login prompt): accumulate until Enter
+    // Input mode (login prompt): accumulate until Enter.
+    // A pasted key arrives as one multi-character chunk (and may be wrapped
+    // in bracketed-paste markers), so process the whole chunk character by
+    // character instead of only accepting length-1 input — otherwise a paste
+    // is silently dropped and login reports "no key entered".
     if (this.#inputMode) {
-      if (key === '\r' || key === '\n') { this.#submitLogin(); return; }
-      if (key === '\x7f' || key === '\b') { this.#inputBuf = this.#inputBuf.slice(0, -1); return; }
-      if (key === '\x03') { this.#cancelInput(); return; }
-      if (key.length === 1 && key >= ' ') {
-        this.#inputBuf = (this.#inputBuf + key).slice(-512);
+      const chunk = String(key ?? '')
+        .replace(/\x1b\[200~/g, '') // bracketed-paste start
+        .replace(/\x1b\[201~/g, ''); // bracketed-paste end
+
+      for (const ch of chunk) {
+        if (ch === '\r' || ch === '\n') { this.#submitLogin(); return; }
+        if (ch === '\x03') { this.#cancelInput(); return; }
+        if (ch === '\x1b') { this.#cancelInput(); return; } // Esc cancels
+        if (ch === '\x7f' || ch === '\b') { this.#inputBuf = this.#inputBuf.slice(0, -1); continue; }
+        if (ch >= ' ' && ch !== '\x7f') {
+          this.#inputBuf = (this.#inputBuf + ch).slice(-512);
+        }
       }
       return;
     }
