@@ -75,9 +75,9 @@
     "types/index.test-d.ts"
   ],
   "devDependencies": {
-    "@types/node": "^24.13.3",
-    "tsd": "^0.31.2",
-    "typescript": "^5.9.3"
+    "@types/node": "^26.2.0",
+    "tsd": "^0.33.0",
+    "typescript": "^7.0.2"
   },
   "types": "types/index.d.ts"
 }
