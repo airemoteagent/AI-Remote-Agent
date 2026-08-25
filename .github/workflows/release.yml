@@ -108,7 +108,7 @@ jobs:
           subject-path: remote-agent-${{ github.ref_name }}.tar.gz
 
       - name: Sign checksums with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        uses: sigstore/gh-action-sigstore-python@v3.5.0
         with:
           inputs: SHA256SUMS
 
