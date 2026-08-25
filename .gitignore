@@ -1,7 +1,5 @@
 # Dependencies
 node_modules/
-website/node_modules/
-package-lock.json
 
 # Never commit credentials or data
 .remote-agent/
@@ -11,7 +9,6 @@ config.json
 */.env
 
 # Runtime data
-website/data/
 *.db
 *.sqlite
 
@@ -26,13 +23,3 @@ Thumbs.db
 dist/
 build/
 *.tgz
-
-# control plane
-platform/node_modules/
-platform/data/
-platform/.env
-
-# enterprise core
-var/
-.env
-packages/*/node_modules/
