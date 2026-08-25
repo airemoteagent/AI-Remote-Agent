@@ -1,72 +1,30 @@
----
-license: mit
-tags:
-- ai-agent
-- ai
-- agent
-- computer-use
-- agentic-ai
-- llm-agent
-- ai-automation
-- ai-assistant
-- automation
-- cli
-- terminal
-- daemon
-- macos
-- linux
-- wsl2
-- raspberry-pi
-- self-hosted
-- local-ai
-- open-source
-- ai-security
-- sandbox
-- policy
-- privacy
-- multi-agent
-- ai-workflow
-- tool-sdk
-- plugins
-- autogpt
-- openai-computer-use
-- claude-computer-use
-- ai-devops
-- ai-sysadmin
-- background-jobs
-- vector-memory
-- cron
-- remote-agent
-language:
-- en
----
+# AI Remote Agent
 
-# Remote Agent Online
-
-**The remote AI agent for all jobs and tasks.** One command installs an AI agent on
-your own machine that streams to **remoteagent.online** and does real work — run
-commands, manage files, browse the web, automate, and remember — under a policy you
-control, with a tamper-evident audit trail. MIT-licensed, one runtime dependency.
-macOS · Linux · Windows/WSL2 · Raspberry Pi.
+**The open-source AI agent that does remote jobs on your own hardware.** Install it on
+a machine you control — macOS · Linux · Windows/WSL2 · Raspberry Pi — pair it with
+**[remoteagent.online](https://remoteagent.online)**, and let an AI do real remote work:
+run commands, manage files, browse the web, automate workflows, schedule jobs and more —
+every action under a local policy you control, every decision recorded in a
+tamper-evident audit trail. MIT-licensed, one runtime dependency.
 
     curl -fsSL https://remoteagent.online/install.sh | bash
     remote-agent login      # pair with remoteagent.online (installed, unconnected until you do)
-    remote-agent start      # the daemon starts polling for work
+    remote-agent start      # the daemon starts polling for remote jobs
 
-Then chat from https://remoteagent.online — or point any AI agent at the control plane.
+Then give it a job from **https://remoteagent.online** — or keep it fully local with
+<code>remote-agent provider set ollama</code> (offline, $0, no keys leave the machine).
 
 <p align="center">
-  <a href="https://github.com/remoteagent-online/remote-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg" alt="Node.js 20+"></a>
-  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20WSL2-informational.svg" alt="Platforms: macOS, Linux, Windows, WSL2, Raspberry Pi">
-  <img src="https://img.shields.io/badge/api%20keys-on%20device-0-red.svg" alt="Zero API keys on device">
-  <img src="https://img.shields.io/badge/version-3.0.0-blueviolet.svg" alt="Version 3.0.0">
-  <img src="https://img.shields.io/badge/tests-449%20incl.%20red--team-brightgreen.svg" alt="449 tests incl. security red-team suite">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20WSL2%20%7C%20Raspberry%20Pi-informational.svg" alt="macOS, Linux, Windows, WSL2, Raspberry Pi">
+  <img src="https://img.shields.io/badge/runtime%20dependencies-1-brightgreen.svg" alt="One runtime dependency">
+  <img src="https://img.shields.io/badge/tests-451%20passing-brightgreen.svg" alt="451 tests passing">
 </p>
 
 ## Security and product status
 
-REMOTE's stated goal is to become the first open-source agent framework where the controls an enterprise deployment needs — device identity, tenant-scoped policy, fleet administration, release integrity, and a tamper-evident audit trail — are implemented and tested in the core, not left as an exercise for the operator.
+remote-agent's stated goal is to become the first open-source agent framework where the controls an enterprise deployment needs — device identity, tenant-scoped policy, fleet administration, release integrity, and a tamper-evident audit trail — are implemented and tested in the core, not left as an exercise for the operator.
 
 That is a goal, not a finished product. What is implemented and tested in this repository is listed in the capability-status table below. What remains external — hosted SSO/SAML/OIDC, SCIM provisioning, hardware-backed key storage, an independent security audit, and community adoption — is stated plainly rather than implied. Review the capability-status table and the threat model before production deployment.
 
@@ -114,7 +72,7 @@ Most AI assistants live in a chat window. They can write you a script —
 but they can't run it. They can explain a crash — but they can't look at
 your logs. They can suggest a cleanup — but they can't do it.
 
-REMOTE is an open-source agent that runs on your own computer — macOS,
+remote-agent is an open-source agent that runs on your own computer — macOS,
 Linux, Windows, WSL2 or a Raspberry Pi — and gives a model real, bounded
 access to the machine. You talk to it from the dashboard or the terminal;
 it reasons about the task, then acts: checks disk space, restarts a
@@ -136,7 +94,7 @@ any OpenAI-compatible endpoint (LM Studio, vLLM, OpenRouter) works too.
 
 ## Why it matters
 
-- **It acts, it doesn't just answer.** Chatbots produce words. REMOTE
+- **It acts, it doesn't just answer.** Chatbots produce words. remote-agent
   produces outcomes — on your machine, under your policy.
 - **Every step is visible.** Reasoning, tool calls, results, token usage,
   model, and latency are streamed live and recorded in an append-only
@@ -148,7 +106,7 @@ any OpenAI-compatible endpoint (LM Studio, vLLM, OpenRouter) works too.
 
 ## What you can build with it
 
-REMOTE is a small but real agent platform, and it is yours to build on. Here
+remote-agent is a small but real agent platform, and it is yours to build on. Here
 are some of the things people use it for:
 
 | You want… | You build it with… |
@@ -167,6 +125,33 @@ are some of the things people use it for:
 | A **monitoring watchdog** | `disk-health` skill + `notify` + cron — alerted before volumes fill up |
 | A **research assistant** | `web-research` skill + vector memory — sources indexed and recalled by meaning |
 | A **fleet of device agents** | multi-device task claiming — each task runs on exactly one winning device |
+
+## One prompt, one shot — see it do real remote jobs
+
+Three demos, three single prompts. Each one was built end-to-end by the agent —
+plan, code, run, verify — with zero hand edits. The stats come straight from the
+run trace.
+
+### Google Maps clone
+
+<p align="center"><img src="docs/assets/demos/remoteagent-example-maps.gif" width="720" alt="AI Remote Agent builds a Google Maps clone from a single prompt — pan, zoom, search, places"></p>
+
+<code>deepseek-chat · 24 steps · 76.5k tokens · ≈ $0.04</code> — a working Maps clone
+with pan, zoom, search and place markers.
+
+### App Store
+
+<p align="center"><img src="docs/assets/demos/remoteagent-example-appstore.gif" width="720" alt="AI Remote Agent builds an App Store from a single prompt"></p>
+
+<code>deepseek-chat · 30 steps · 48.2k tokens · ≈ $0.02</code> — an App Store built from
+one prompt.
+
+### Chess game
+
+<p align="center"><img src="docs/assets/demos/remoteagent-example-chess.gif" width="720" alt="AI Remote Agent builds a playable chess game from a single prompt"></p>
+
+<code>deepseek-chat · 9 steps · 24.2k tokens · ≈ $0.0079</code> — a playable chess game:
+board, pieces and rules in one shot.
 
 ## Everything it can do
 
@@ -312,7 +297,7 @@ the daemon advertises loaded plugins to your control plane on connect.
 
 The strongest thing you can build on is a core that refuses politely. The
 policy engine (`~/.remote-agent/policy.json`) is the **device-side
-authority**: deny-by-default, first-match-wins rules with
+authority**: first-match-wins rules with
 `when`-conditions, per-tool rate limits, daily budget caps, and presets
 (`strict` · `standard` · `permissive`). It is loaded once from local disk
 at startup, and the cloud can never widen it — the cloud only ever
@@ -363,7 +348,10 @@ are a device-side authority — the cloud cannot change them.
   shared by the daemon and the gateway.
 - `docs/` — [architecture](docs/ARCHITECTURE.md), [policy
   grammar](docs/POLICY.md), [tools reference](docs/TOOLS.md), [compliance
-  mappings](docs/COMPLIANCE.md), [roadmap](docs/SPEC.md).
+  index](docs/COMPLIANCE-MATRIX.md) — [IEC 62443-4-1](docs/IEC-62443-4-1.md),
+  [IEC 62443-4-2](docs/IEC-62443-4-2.md), [EU Cyber Resilience Act](docs/CRA-COMPLIANCE.md),
+  [requirements traceability](docs/SECURITY-REQUIREMENTS-TRACEABILITY.md),
+  [vulnerability management](docs/VULNERABILITY-MANAGEMENT.md), [roadmap](docs/COMPLIANCE-ROADMAP.md).
 
 Every loop keeps the agent honest: policy check before every tool call,
 corrective nudges on malformed replies, forced conclusion at the step
@@ -396,9 +384,23 @@ manifest and refuses to run as root. Containers: `docker compose up -d`
 (non-root, read-only rootfs, healthcheck). Diagnose anything with
 `remote-agent doctor`.
 
+## Privacy — anonymous install presence
+
+Until you pair with an API key, the agent sends **one tiny, anonymous
+heartbeat** to remoteagent.online (`POST /api/v1/agent/presence/ping`).
+It contains **only** your OS platform, CPU architecture and agent version —
+no install ID, no hostname, no IP, no username. The server stores
+**aggregate counts** (total installs, installs-per-day, platform breakdown),
+so an install can never be linked back to a person. It just tells us a
+client is installed and waiting to be paired. Opt out anytime:
+
+```bash
+REMOTE_TELEMETRY=0 remote-agent start
+```
+
 ## Security — the strongest claim, and the one we test hardest
 
-- **Local policy is the authority** — deny-by-default, cloud can never
+- **Local policy is the authority** — first-match-wins, cloud can never
   widen it. Plugins are inert until you write an explicit allow rule.
 - **Sandboxed tools** — argv-only shell with a realpath-resolved
   allowlist, workspace-confined files, SSRF-safe network (DNS resolved
@@ -409,8 +411,19 @@ manifest and refuses to run as root. Containers: `docker compose up -d`
   works behind NAT, firewalls and CGNAT.
 - **Bounded work** — step budgets, corrective nudges, forced conclusions.
 - **Revocable access** — one click in the dashboard kills a device token.
-- **Verified** — 449 tests including the security red-team suite; CI runs
+- **Verified** — 451 tests including the security red-team suite; CI runs
   Node 20/22/24 on macOS, Ubuntu, and Windows. Every claim maps to a test.
+
+## Limitations — what it does not do (yet)
+
+Honest boundaries, so you can size it correctly:
+
+- **No protection against a compromised host.** The hash-chained audit trail detects modification, deletion and insertion of individual entries; it cannot detect a full rewrite by an attacker who already owns the machine. Signing the chain with the on-device Ed25519 identity is planned.
+- **Prompt-injection defense is structural, not semantic.** Untrusted content is separated from trusted instructions and normalized — intent classification is not claimed. The exact boundary is documented in [SECURITY.md](SECURITY.md).
+- **No external security audit yet.** The IEC 62443 / CRA documents are evidence-based mappings, not certifications.
+- **Policy changes require a restart.** The policy is loaded at startup, not hot-reloaded.
+- **Rate limits are per-process.** They reset on restart; persistence is planned.
+- **Windows service lifecycle** is implemented and CI-covered but has not been validated on real elevated hardware yet — see [docs/WINDOWS.md](docs/WINDOWS.md).
 
 ## How it fits the agent landscape
 
@@ -493,7 +506,7 @@ device metrics, tool results, and your chat messages. Nothing to third
 parties. Details in [SECURITY.md](SECURITY.md).
 
 **Can the agent damage my machine?** The sandbox is layered and the
-policy engine is deny-by-default; start with `remote-agent policy preset
+policy engine is first-match-wins; start from `remote-agent policy preset
 strict` for a read-only agent, and treat it like any user with shell
 access: grant what you trust. Every decision is audited.
 
@@ -505,8 +518,8 @@ access: grant what you trust. Every decision is audited.
    autonomy with a finish line.
 4. **One dependency.** Zero build step, zero runtime bloat; the code is
    the documentation.
-5. **Honest claims.** Every security property in this README maps to a
-   test in the red-team suite.
+5. **Honest claims.** We state what is implemented and tested — and what
+   is not. The limitations section above is part of that promise.
 
 ## Roadmap
 
@@ -537,7 +550,7 @@ validation).
 - [Architecture](docs/ARCHITECTURE.md)
 - [Tools reference + SDK](docs/TOOLS.md)
 - [Policy grammar & presets](docs/POLICY.md)
-- [Compliance & trust](docs/COMPLIANCE.md)
+- [Compliance & trust](docs/COMPLIANCE.md) — [IEC 62443](docs/IEC-62443-4-1.md) · [CRA](docs/CRA-COMPLIANCE.md) · [matrix](docs/COMPLIANCE-MATRIX.md)
 - [Windows support](docs/WINDOWS.md)
 - [Product and engineering goals](docs/GOALS.md)
 - [Project plan](docs/PROJECT-PLAN.md)
