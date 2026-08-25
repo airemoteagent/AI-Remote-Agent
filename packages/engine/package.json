@@ -1,0 +1,14 @@
+{
+  "name": "@mona/engine",
+  "version": "2.1.0",
+  "description": "mona agent core — policy-as-code, budget governor, structured memory, bounded task loop. Zero runtime dependencies.",
+  "type": "module",
+  "private": true,
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

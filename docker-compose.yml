@@ -1,0 +1,22 @@
+# mona-agent — compose deployment
+# Read-only rootfs, tmpfs /tmp, persistent volume for agent state.
+# Health/metrics stay bound to localhost inside the container and are
+# optionally published to the host loopback only.
+services:
+  mona-agent:
+    build: .
+    image: mona-agent:local
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      MONA_CLOUD: ${MONA_CLOUD:-https://agent.mona.expert}
+      MONA_METRICS_PORT: "4301"
+    volumes:
+      - mona-agent-data:/home/mona/.mona-agent
+    ports:
+      - "127.0.0.1:4301:4301"   # healthz/metrics on host loopback only
+    restart: unless-stopped
+
+volumes:
+  mona-agent-data:

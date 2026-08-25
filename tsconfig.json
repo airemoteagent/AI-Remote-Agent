@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "noEmit": true,
+    "strict": true,
+    "allowJs": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "strictNullChecks": false,
+    "useUnknownInCatchVariables": false
+  },
+  "include": [
+    "types/**/*.d.ts",
+    "types/**/*.test-d.ts",
+    "apps/desktop/src/tools/define.js",
+    "apps/desktop/src/tools/registry.js",
+    "apps/desktop/src/index.js"
+  ],
+  "exclude": ["node_modules"]
+}

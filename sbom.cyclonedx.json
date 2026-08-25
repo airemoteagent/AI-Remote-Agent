@@ -1,0 +1,31 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:3f2c1a9e-7b4d-4f1e-8c6a-2d0b5e9f7a11",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-08-13T00:00:00Z",
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:npm/mona-expert@2.1.0",
+      "name": "mona-agent",
+      "version": "2.1.0",
+      "purl": "pkg:npm/mona-expert@2.1.0",
+      "supplier": { "name": "mona.expert" },
+      "licenses": [{ "license": { "id": "MIT" } }]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/ws@8.18.0",
+      "name": "ws",
+      "version": "8.18.0",
+      "purl": "pkg:npm/ws@8.18.0",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    }
+  ],
+  "dependencies": [
+    { "ref": "pkg:npm/mona-expert@2.1.0", "dependsOn": ["pkg:npm/ws@8.18.0"] }
+  ]
+}

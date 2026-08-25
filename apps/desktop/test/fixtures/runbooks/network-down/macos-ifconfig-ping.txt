@@ -1,0 +1,15 @@
+# Static macOS network-down fixture (offline acceptance evidence)
+$ ifconfig en0
+en0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+	ether 00:00:00:00:00:00
+	inet6 fe80::1%en0 prefixlen 64 scopeid 0x4
+	status: inactive
+
+$ ping -c 3 8.8.8.8
+PING 8.8.8.8 (8.8.8.8): 56 data bytes
+Request timeout for icmp_seq 0
+Request timeout for icmp_seq 1
+Request timeout for icmp_seq 2
+
+--- 8.8.8.8 ping statistics ---
+3 packets transmitted, 0 packets received, 100.0% packet loss

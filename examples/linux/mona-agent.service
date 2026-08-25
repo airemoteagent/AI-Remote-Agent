@@ -1,0 +1,13 @@
+[Unit]
+Description=mona-agent — cloud-brained AI agent for this device
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/mona-agent start
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

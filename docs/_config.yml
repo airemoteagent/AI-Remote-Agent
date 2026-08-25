@@ -1,0 +1,11 @@
+# GitHub Pages config for the docs site (optional)
+# Enable in repo Settings  Pages  Source: main /docs to publish
+# at https://monaexpert.github.io/agent/
+title: mona-agent — cloud-brained AI agent for your device
+description: >-
+  Open-source AI agent daemon for macOS, Linux and WSL2. Chat with your
+  computer from anywhere, run commands, manage files, stream live metrics
+  to your dashboard. One command install, free forever, MIT licensed.
+url: "https://agent.mona.expert"
+github_username: MONAEXPERT
+theme: jekyll-theme-minimal

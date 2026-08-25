@@ -1,0 +1,121 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify tag matches package version
+        run: |
+          test "${GITHUB_REF_NAME#v}" = "$(node -p \"require('./package.json').version\")"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Validate declaration tests
+        run: npx tsd
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  signing-readiness:
+    name: Signing readiness (GPG / Authenticode)
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Validate signing configuration
+        shell: pwsh
+        env:
+          MONA_WINDOWS_CERTIFICATE_B64: ${{ secrets.MONA_WINDOWS_CERTIFICATE_B64 }}
+          MONA_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.MONA_WINDOWS_CERTIFICATE_PASSWORD }}
+          MONA_GPG_PRIVATE_KEY: ${{ secrets.MONA_GPG_PRIVATE_KEY }}
+        run: |
+          $windowsConfigured = $env:MONA_WINDOWS_CERTIFICATE_B64 -and $env:MONA_WINDOWS_CERTIFICATE_PASSWORD
+          $gpgConfigured = $env:MONA_GPG_PRIVATE_KEY
+          if (-not $windowsConfigured -or -not $gpgConfigured) {
+            Write-Warning 'Release signing credentials are not configured. Artifacts will remain checksum- and provenance-attested but unsigned.'
+            'signing=not-configured' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          } else {
+            'signing=configured' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          }
+
+  release:
+    name: Build tarball, checksums, and provenance for ${{ github.ref_name }}
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Pack source tarball
+        run: |
+          TAG="${{ github.ref_name }}"
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+            --exclude-vcs --exclude=node_modules --exclude='.github' \
+            -czf "mona-agent-${TAG}.tar.gz" .
+
+      - name: Generate CycloneDX SBOM
+        run: npx --yes @cyclonedx/cyclonedx-npm@1.20.0 --output-file sbom.cyclonedx.json --output-format JSON --spec-version 1.6
+
+      - name: Checksums
+        run: |
+          TAG="${{ github.ref_name }}"
+          test -s sbom.cyclonedx.json
+          sha256sum "mona-agent-${TAG}.tar.gz" > SHA256SUMS
+          sha256sum sbom.cyclonedx.json >> SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest source archive provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: mona-agent-${{ github.ref_name }}.tar.gz
+
+      - name: Sign checksums with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        with:
+          inputs: SHA256SUMS
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@c06208fe532ec0f6b2b7e9eb2ddbd3d90c8c8ff7 # v2
+        with:
+          files: |
+            mona-agent-${{ github.ref_name }}.tar.gz
+            sbom.cyclonedx.json
+            SHA256SUMS

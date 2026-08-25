@@ -1,0 +1,2 @@
+Filesystem 1024-blocks Used Available Capacity Mounted on
+/dev/disk1 100000 93000 7000 93% /data

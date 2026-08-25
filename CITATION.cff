@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use mona-agent in your work, please cite it."
+title: "mona-agent — the open-source AI agent for your computer"
+type: software
+version: 2.8.0
+date-released: "2026-08-16"
+authors:
+  - name: "Mona Expert"
+    website: "https://agent.mona.expert"
+repository-code: "https://github.com/MONAEXPERT/agent"
+url: "https://agent.mona.expert"
+license: MIT
+keywords:
+  - ai-agent
+  - automation
+  - device-daemon
+  - security
+  - privacy
+  - terminal

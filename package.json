@@ -1,0 +1,83 @@
+{
+  "name": "mona-expert",
+  "version": "2.11.0",
+  "description": "mona-agent — the open-source AI agent for your computer. A secure, sandboxed app that runs quietly in the background on macOS, Linux and WSL2, so you can control your machine from anywhere: run commands, manage files, automate tasks, stream live metrics. Private by design with an AES-256 key vault and egress-only networking.",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/engine",
+    "packages/protocol",
+    "apps/desktop"
+  ],
+  "bin": {
+    "mona-agent": "./apps/desktop/bin/mona-agent.js"
+  },
+  "scripts": {
+    "start": "node apps/desktop/bin/mona-agent.js start",
+    "gui": "node apps/desktop/bin/mona-agent.js gui",
+    "login": "node apps/desktop/bin/mona-agent.js login",
+    "test": "node --test apps/desktop/test/prompt-injection.test.mjs apps/desktop/test/update-integrity.test.mjs apps/desktop/test/agent.test.mjs apps/desktop/test/control.test.mjs apps/desktop/test/docker-control.test.mjs apps/desktop/test/skills.test.mjs apps/desktop/test/tools-new.test.mjs apps/desktop/test/tools-sdk.test.mjs apps/desktop/test/tui-scroll.test.mjs apps/desktop/test/security.test.mjs apps/desktop/test/modes.test.mjs apps/desktop/test/version.test.mjs apps/desktop/test/windows-platform.test.mjs apps/desktop/test/windows-service.test.mjs apps/desktop/test/credentials.test.mjs apps/desktop/test/system-cmd.test.mjs apps/desktop/test/vector-tool.test.mjs apps/desktop/test/taskqueue.test.mjs apps/desktop/test/jobs-tool.test.mjs apps/desktop/test/jobs-policy.test.mjs apps/desktop/test/delegate-tool.test.mjs apps/desktop/test/goal-tool.test.mjs apps/desktop/test/workflow-tool.test.mjs apps/desktop/test/plugin-tool.test.mjs apps/desktop/test/e2e-engine.test.mjs apps/desktop/test/local-provider.test.mjs apps/desktop/test/mcp.test.mjs apps/desktop/test/metrics.test.mjs apps/desktop/test/doctor.test.mjs apps/desktop/test/otel.test.mjs apps/desktop/test/runbooks.test.mjs packages/engine/test/engine.test.mjs packages/engine/test/loop-resume.test.mjs packages/engine/test/policy-rules.test.mjs packages/engine/test/vector.test.mjs packages/engine/test/delegate.test.mjs packages/engine/test/goal.test.mjs packages/engine/test/workflow.test.mjs packages/engine/test/run-state.test.mjs packages/engine/test/run-recovery.test.mjs packages/engine/test/jit.test.mjs packages/engine/test/device-registry.test.mjs packages/engine/test/metrics.test.mjs packages/engine/test/plugin-manifest.test.mjs packages/engine/test/upgrade.test.mjs packages/engine/test/fleet.test.mjs packages/engine/test/evidence.test.mjs packages/engine/test/package-lifecycle.test.mjs packages/engine/test/siem.test.mjs packages/engine/test/admin-api.test.mjs packages/engine/test/marketplace-index.test.mjs packages/protocol/test/protocol.test.mjs"
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=9"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MONAEXPERT/agent.git"
+  },
+  "homepage": "https://agent.mona.expert",
+  "bugs": {
+    "url": "https://github.com/MONAEXPERT/agent/issues"
+  },
+  "keywords": [
+    "ai-agent",
+    "ai",
+    "agent",
+    "automation",
+    "device-daemon",
+    "cli",
+    "terminal-ui",
+    "remote-control",
+    "computer-use",
+    "macos",
+    "linux",
+    "wsl2",
+    "raspberry-pi",
+    "security",
+    "privacy",
+    "sandbox",
+    "orchestration",
+    "llm",
+    "cloud",
+    "monitoring",
+    "mona-expert"
+  ],
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "files": [
+    "apps/desktop/bin",
+    "apps/desktop/src",
+    "apps/desktop/src/windows-service.ps1",
+    "packages/engine/src",
+    "packages/protocol/src",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "docs/",
+    "types/index.d.ts",
+    "types/index.test-d.ts"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "tsd": "^0.31.2",
+    "typescript": "^5.9.3"
+  },
+  "types": "types/index.d.ts"
+}

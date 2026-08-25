@@ -1,0 +1,46 @@
+name: Bug report
+description: Something is broken — help us fix it
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please check [the FAQ](../docs/FAQ.md) first.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "Output of `mona-agent --version` (or `node -e \"console.log(require('./apps/desktop/package.json').version)\"`)"
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Linux, WSL2, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Steps to reproduce + expected vs actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "Relevant output of `mona-agent start` / `mona-agent gui` (no secrets!)"
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I removed API keys / tokens from the logs
+          required: true
+        - label: I searched existing issues
+          required: true

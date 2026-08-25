@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name:  Documentation
+    url: https://github.com/MONAEXPERT/agent/tree/main/docs
+    about: Getting started, architecture, tools reference and FAQ
+  - name:  mona.expert
+    url: https://agent.mona.expert
+    about: The cloud dashboard — create an account and get your device key
+  - name:  Security issue?
+    url: https://github.com/MONAEXPERT/agent/blob/main/SECURITY.md
+    about: Report vulnerabilities privately (do NOT open a public issue)

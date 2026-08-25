@@ -1,0 +1,13 @@
+# Static Linux network-down fixture (offline acceptance evidence)
+$ ip -br addr
+lo               UNKNOWN        127.0.0.1/8 ::1/128
+eth0             DOWN
+
+$ ip route
+(none)
+
+$ ping -c 3 -W 2 8.8.8.8
+PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.
+
+--- 8.8.8.8 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2035ms

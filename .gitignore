@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+website/node_modules/
+package-lock.json
+
+# Never commit credentials or data
+.mona-agent/
+credentials.json
+config.json
+.env
+*/.env
+
+# Runtime data
+website/data/
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Build artifacts
+dist/
+build/
+*.tgz
+
+# control plane
+platform/node_modules/
+platform/data/
+platform/.env
+
+# enterprise core
+var/
+.env
+packages/*/node_modules/

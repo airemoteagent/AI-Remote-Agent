@@ -1,0 +1,41 @@
+name: Security review / hardening
+description: Propose a scoped security review, test case, or hardening improvement (not for private vulnerability reports)
+title: "[security review]: "
+labels: [security]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for review planning, defense-in-depth, or documentation gaps.
+        **Do not include exploitable details or secrets.** For a suspected vulnerability,
+        follow [SECURITY.md](../../SECURITY.md) and report privately.
+  - type: input
+    id: area
+    attributes:
+      label: Area and version/commit
+      placeholder: e.g. filesystem tool, v2.11.0, commit abc123
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope or concern
+      description: What should be reviewed, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Suggested test or evidence
+      description: Give a safe, non-sensitive test plan or link to relevant code/docs.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checks
+      options:
+        - label: I used synthetic data and removed credentials, tokens, and personal data.
+          required: true
+        - label: This is not a private vulnerability disclosure; I will use SECURITY.md for that.
+          required: true
