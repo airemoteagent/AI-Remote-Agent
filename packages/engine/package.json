@@ -1,6 +1,6 @@
 {
   "name": "@remote-agent/engine",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "remote agent core — policy-as-code, budget governor, structured memory, bounded task loop. Zero runtime dependencies.",
   "type": "module",
   "private": true,

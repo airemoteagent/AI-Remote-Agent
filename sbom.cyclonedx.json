@@ -4,13 +4,13 @@
   "serialNumber": "urn:uuid:3f2c1a9e-7b4d-4f1e-8c6a-2d0b5e9f7a11",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-08-13T00:00:00Z",
+    "timestamp": "2026-08-25T00:00:00Z",
     "component": {
       "type": "application",
-      "bom-ref": "pkg:npm/remote-agent@2.1.0",
+      "bom-ref": "pkg:npm/remote-agent@4.0.0",
       "name": "remote-agent",
-      "version": "2.1.0",
-      "purl": "pkg:npm/remote-agent@2.1.0",
+      "version": "4.0.0",
+      "purl": "pkg:npm/remote-agent@4.0.0",
       "supplier": { "name": "remoteagent.online" },
       "licenses": [{ "license": { "id": "MIT" } }]
     }
@@ -26,6 +26,6 @@
     }
   ],
   "dependencies": [
-    { "ref": "pkg:npm/remote-agent@2.1.0", "dependsOn": ["pkg:npm/ws@8.18.0"] }
+    { "ref": "pkg:npm/remote-agent@4.0.0", "dependsOn": ["pkg:npm/ws@8.18.0"] }
   ]
 }

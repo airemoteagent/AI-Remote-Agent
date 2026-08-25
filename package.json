@@ -1,6 +1,6 @@
 {
   "name": "remote-agent",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "remote-agent — the open-source AI agent for your computer. A secure, sandboxed app that runs quietly in the background on macOS, Linux and WSL2, so you can control your machine from anywhere: run commands, manage files, automate tasks, stream live metrics. Private by design with an AES-256 key vault and egress-only networking.",
   "type": "module",
   "private": true,
