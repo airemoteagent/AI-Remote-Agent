@@ -119,7 +119,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript
           queries: security-extended
@@ -134,7 +134,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
 
       - name: Secret scan (gitleaks)
         uses: gitleaks/gitleaks-action@v2
