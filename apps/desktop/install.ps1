@@ -17,7 +17,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Repo = 'remoteagent-online/remote-agent'
+$Repo = 'airemoteagent/AI-Remote-Agent'
 if ($DryRun) { Write-Host "DRY RUN — nothing will be changed" }
 
 $node = Get-Command node.exe -ErrorAction SilentlyContinue

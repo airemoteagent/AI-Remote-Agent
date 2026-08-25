@@ -88,7 +88,7 @@ async function login() {
     console.log(`    ${CYAN}remote-agent gui${RESET}       ${DIM}# terminal dashboard${RESET}`);
     console.log(`    ${CYAN}remote-agent start${RESET}     ${DIM}# headless daemon${RESET}`);
     console.log(`    ${CYAN}remote-agent connect${RESET}   ${DIM}# test connection${RESET}`);
-    console.log(`\n  ${DIM}Enjoying it?  Star the repo:${RESET} https://github.com/remoteagent-online/remote-agent`);
+    console.log(`\n  ${DIM}Enjoying it?  Star the repo:${RESET} https://github.com/airemoteagent/AI-Remote-Agent`);
     console.log();
     rl.close();
   } catch (e) {
@@ -459,7 +459,7 @@ async function start() {
   console.log(`\n  ${BOLD}${CYAN}remote-agent${RESET} ${DIM}v${DEFAULTS.version}${RESET}`);
   console.log(`  ${DIM}Headless daemon — controlled from ${CLOUD.base}${RESET}`);
   console.log(`  ${DIM}Log level: ${log.level || 'info'}${RESET}`);
-  console.log(`  ${DIM} ${RESET}${DIM}Star on GitHub:${RESET} https://github.com/remoteagent-online/remote-agent`);
+  console.log(`  ${DIM} ${RESET}${DIM}Star on GitHub:${RESET} https://github.com/airemoteagent/AI-Remote-Agent`);
   console.log();
 
   const daemon = new AgentDaemon(creds);

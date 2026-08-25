@@ -7,7 +7,7 @@ date-released: "2026-08-25"
 authors:
   - name: "Remote Agent Online"
     website: "https://remoteagent.online"
-repository-code: "https://github.com/remoteagent-online/remote-agent"
+repository-code: "https://github.com/airemoteagent/AI-Remote-Agent"
 url: "https://remoteagent.online"
 license: MIT
 keywords:

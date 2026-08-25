@@ -20,7 +20,7 @@ stream live metrics from anywhere.
 - [examples/](../examples) — launchd & systemd units, health check script
 
 **Cloud:** [remoteagent.online](https://remoteagent.online) ·
-**Repo:** [remoteagent-online/remote-agent](https://github.com/remoteagent-online/remote-agent)
+**Repo:** [airemoteagent/AI-Remote-Agent](https://github.com/airemoteagent/AI-Remote-Agent)
 
 
 ## Additional Documents

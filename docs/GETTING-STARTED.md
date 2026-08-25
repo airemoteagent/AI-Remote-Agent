@@ -19,7 +19,7 @@ curl -fsSL https://remoteagent.online/install.sh | bash
 
 The installer:
 
-- Downloads the agent from GitHub (`remoteagent-online/remote-agent`)
+- Downloads the agent from GitHub (`airemoteagent/AI-Remote-Agent`)
 - Installs dependencies (`ws` only)
 - Places the app in `~/.remote-agent/agent`
 - Adds `remote-agent` to your PATH (via `~/.local/bin`, persisted in your shell rc)

@@ -81,7 +81,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           test -x apps/desktop/install.sh
-          REMOTE_REPO=remoteagent-online/remote-agent apps/desktop/install.sh --dry-run --allow-root
+          REMOTE_REPO=airemoteagent/AI-Remote-Agent apps/desktop/install.sh --dry-run --allow-root
 
       - name: Windows installer dry-run acceptance
         if: runner.os == 'Windows'

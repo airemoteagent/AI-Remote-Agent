@@ -199,5 +199,5 @@ Format: [Keep a Changelog](https://keepachangelog.com), versioning:
 
 ## Changelog links
 
-[2.1.0]: https://github.com/remoteagent-online/remote-agent/releases/tag/v2.1.0
-[2.0.0]: https://github.com/remoteagent-online/remote-agent/releases/tag/v2.0.0
+[2.1.0]: https://github.com/airemoteagent/AI-Remote-Agent/releases/tag/v2.1.0
+[2.0.0]: https://github.com/airemoteagent/AI-Remote-Agent/releases/tag/v2.0.0

@@ -28,11 +28,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/remoteagent-online/remote-agent.git"
+    "url": "https://github.com/airemoteagent/AI-Remote-Agent.git"
   },
   "homepage": "https://remoteagent.online",
   "bugs": {
-    "url": "https://github.com/remoteagent-online/remote-agent/issues"
+    "url": "https://github.com/airemoteagent/AI-Remote-Agent/issues"
   },
   "keywords": [
     "ai-agent",

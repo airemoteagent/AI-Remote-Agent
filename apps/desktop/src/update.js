@@ -5,7 +5,7 @@
 //
 // Update mechanics:
 //   - Latest version is read from the GitHub releases API of
-//     remoteagent-online/remote-agent (public repo, no auth needed).
+//     airemoteagent/AI-Remote-Agent (public repo, no auth needed).
 //   - The install lives in ~/.remote-agent/agent/ as a full copy of the
 //     repo. Self-update replaces it with the release tarball, re-runs
 //     `npm install`, and restarts the daemon if it was running.
@@ -24,7 +24,7 @@ import { createHash } from 'node:crypto';
 import { VERSION, isUpdateAvailable, compareVersions } from './version.js';
 import { PATHS } from './config.js';
 
-export const REPO = 'remoteagent-online/remote-agent';
+export const REPO = 'airemoteagent/AI-Remote-Agent';
 const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const TAGS_URL = `https://api.github.com/repos/${REPO}/tags?per_page=20`;
 const TARBALL = (tag) => `https://github.com/${REPO}/releases/download/${tag}/remote-agent-${tag}.tar.gz`;

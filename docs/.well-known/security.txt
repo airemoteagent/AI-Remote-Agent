@@ -1,6 +1,6 @@
 Contact: mailto:mo@remoteagent.online
 Expires: 2027-01-01T00:00:00.000Z
-Encryption: https://github.com/remoteagent-online/remote-agent/security/policy
-Policy: https://github.com/remoteagent-online/remote-agent/blob/main/SECURITY.md
+Encryption: https://github.com/airemoteagent/AI-Remote-Agent/security/policy
+Policy: https://github.com/airemoteagent/AI-Remote-Agent/blob/main/SECURITY.md
 Preferred-Languages: en, de
-Canonical: https://remoteagent-online.github.io/agent/.well-known/security.txt
+Canonical: https://airemoteagent.github.io/AI-Remote-Agent/.well-known/security.txt

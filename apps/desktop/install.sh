@@ -18,7 +18,7 @@
 # hard. The extracted version is checked against the requested tag.
 set -euo pipefail
 
-REPO="${REMOTE_REPO:-remoteagent-online/remote-agent}"
+REPO="${REMOTE_REPO:-airemoteagent/AI-Remote-Agent}"
 BRANCH="${REMOTE_BRANCH:-main}"
 INSTALL_DIR="${REMOTE_INSTALL_DIR:-$HOME/.remote-agent}"
 VERSION_REQ=""
@@ -192,7 +192,7 @@ echo ""
 echo -e "  ${GREEN}remote-agent installed!${RESET}  ${DIM}(ref: $REF${VERSION_REQ:+, checksum-verified})${RESET}"
 echo ""
 echo -e "  ${BOLD}Enjoying remote-agent?${RESET}  Star us on GitHub:"
-echo -e "  ${CYAN}https://github.com/remoteagent-online/remote-agent${RESET}"
+echo -e "  ${CYAN}https://github.com/airemoteagent/AI-Remote-Agent${RESET}"
 echo ""
 echo -e "  ${BOLD}Next steps:${RESET}"
 echo ""

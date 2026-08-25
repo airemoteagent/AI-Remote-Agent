@@ -6,7 +6,7 @@ set up, test and propose changes.
 ## Setup
 
 ```bash
-git clone git@github.com:remoteagent-online/remote-agent.git
+git clone git@github.com:airemoteagent/AI-Remote-Agent.git
 cd agent
 npm install
 ```

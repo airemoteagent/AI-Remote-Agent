@@ -110,5 +110,5 @@ and extra shell patterns — see [TOOLS.md](TOOLS.md).
 
 ## Where do I report bugs or security issues?
 
-Bugs: [GitHub issues](https://github.com/remoteagent-online/remote-agent/issues).
+Bugs: [GitHub issues](https://github.com/airemoteagent/AI-Remote-Agent/issues).
 Security: [SECURITY.md](../SECURITY.md) (private disclosure first).
