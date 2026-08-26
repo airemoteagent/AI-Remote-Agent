@@ -131,6 +131,7 @@ export class AgentDaemon extends EventEmitter {
   #activeSkills = null;  // per-task skill docs (name/description/instructions)
   #locked = false;       // 🔒 secure-mode: read-only, workspace-only, minimal tools
   #currentTask = null;
+  #currentSignal = null; // AbortSignal of the running task — cloud "stop" aborts it
   #taskPoll = null;
   #polling = false;
   // Engine core: policy-as-code, budget governor, structured memory.
@@ -208,6 +209,7 @@ export class AgentDaemon extends EventEmitter {
       auditWrite({ kind: 'task', event: 'queued', runId, position });
     });
     this.#tasks.on('error', (err) => this.emit('error', err));
+    this.#tasks.on('done', () => { this.#currentSignal = null; });
 
     this.#control = new ControlChannel(creds.apiKey, creds.agentId, {
       tools: tools.list(),
@@ -318,7 +320,7 @@ export class AgentDaemon extends EventEmitter {
       task,
       cloudTask,
       meta,
-      run: (job) => this.#runTask(job.task, job.runId, job.cloudTask || null, job.meta || null),
+      run: (job) => this.#runTask(job.task, job.runId, job.cloudTask || null, job.meta || null, job.signal),
     });
   }
 
@@ -381,6 +383,13 @@ export class AgentDaemon extends EventEmitter {
     try {
       const data = await pollTasks(this.#creds.apiKey);
       this.#mergeBrain(data.brain);
+      const cancellations = data.cancellations || [];
+      for (const rid of cancellations) {
+        if (this.#tasks.cancel(rid, 'cancelled-by-cloud')) {
+          log.info(`Cancelled task ${rid} (cloud stop)`);
+          this.#control.step('task.cancelled', { runId: rid });
+        }
+      }
       const tasks = data.tasks || [];
       for (const t of tasks) {
         if (t.status !== 'pending') continue;
@@ -442,6 +451,7 @@ export class AgentDaemon extends EventEmitter {
       profile,
       onChunk,
       onUsage,
+      signal:  this.#currentSignal || undefined,
     });
   }
 
@@ -462,6 +472,9 @@ export class AgentDaemon extends EventEmitter {
           onUsage: (usage) => this.emit('task:usage', usage),
         });
       } catch (err) {
+        if (this.#currentSignal?.aborted || err?.name === 'AbortError') {
+          throw err; // cloud/user cancelled the run — never retry an abort
+        }
         lastErr = err;
         const msg = String(err?.message || err);
         const retriable = RETRIABLE.test(msg);
@@ -570,7 +583,8 @@ export class AgentDaemon extends EventEmitter {
     }
   }
 
-  async #runTask(task, runId, cloudTask = null, meta = null) {
+  async #runTask(task, runId, cloudTask = null, meta = null, signal = null) {
+    this.#currentSignal = signal || null;
     if (!task) {
       this.#control.result(runId, { error: 'No task provided' });
       return;
@@ -889,13 +903,33 @@ export class AgentDaemon extends EventEmitter {
         }
       }
     } catch (err) {
-      this.#stats.errors++;
+      const cancelled = this.#currentSignal?.aborted || err?.name === 'AbortError';
       setAgentShellAllow(null);
-    setAgentRoots(null);
-    this.#activeTools = null;
-    this.#activeSkills = null;
-    this.#locked = false;
-    this.#currentTask = null;
+      setAgentRoots(null);
+      this.#activeTools = null;
+      this.#activeSkills = null;
+      this.#locked = false;
+      this.#currentTask = null;
+      this.#currentSignal = null;
+      if (cancelled) {
+        log.info(`Task cancelled by cloud: ${runId}`);
+        this.#control.step('task.cancelled', { runId });
+        this.#control.result(runId, { error: 'Cancelled' });
+        this.emit('task:cancelled', { runId });
+        try { this.#runs.transition(runId, 'cancelled', { reason: 'cancelled-by-cloud', checkpoint: { phase: 'cancelled' } }); } catch { /* durable record is best-effort */ }
+        auditWrite({ kind: 'task', event: 'cancelled', runId });
+        const cmsg = 'Task cancelled.';
+        if (sngine && runId) {
+          try {
+            await runFinish(this.#creds.apiKey, runId, { status: 'cancelled', error: 'cancelled', model: lastModel, provider: lastProvider, usage: usageTotals, durationMs: Date.now() - t0 });
+          } catch (fe) { log.debug(`runFinish cancelled failed: ${fe.message}`); }
+        }
+        if (cloudTask) await this.#reportResult(cloudTask, cmsg, steps, { runId, usage: usageTotals, model: lastModel, provider: lastProvider });
+        try { this.#memory.learnFromRun(task, cmsg, { outcome: 'cancelled' }); } catch { /* memory is best-effort */ }
+        endSpan(taskSpan, false);
+        return;
+      }
+      this.#stats.errors++;
       this.#control.step('task.error', { error: err.message });
       this.emit('task:error', err);
       log.error(`Think failed: ${err.message}`);
