@@ -4,6 +4,12 @@ All notable changes to remote-agent are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.0.1] - 2026-08-26 — Stop/Cancel control
+
+- Dashboard **Send** button now toggles to **Stop** while a task is running; cancelling marks the run/task `cancelled` end-to-end.
+- Device daemon aborts the in-flight LLM call and reports `cancelled` instead of `failed` (no retry on abort).
+- `GET /api/v1/agent/tasks` now returns a `cancellations` list the daemon acts on; `POST /api/v1/mona/runs/{runId}/cancel` stops a run.
+
 ## [4.0.0] - 2026-08-25 — Enterprise Compliance & Intelligence
 
 Compliance-foundation release: IEC 62443-4-1/-4-2 and EU Cyber Resilience Act

@@ -1,6 +1,6 @@
 {
   "name": "remote-agent",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "remoteagent.online device agent — smart terminal, cloud brain. The only credential it holds is the remoteagent.online key.",
   "type": "module",
   "private": true,
