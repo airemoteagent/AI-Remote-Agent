@@ -78,8 +78,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -101,16 +99,6 @@ jobs:
           sha256sum "remote-agent-${TAG}.tar.gz" > SHA256SUMS
           sha256sum sbom.cyclonedx.json >> SHA256SUMS
           cat SHA256SUMS
-
-      - name: Attest source archive provenance
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: remote-agent-${{ github.ref_name }}.tar.gz
-
-      - name: Sign checksums with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v3.0.0
-        with:
-          inputs: SHA256SUMS
 
       - name: Attach to release
         uses: softprops/action-gh-release@c06208fe532ec0f6b2b7e9eb2ddbd3d90c8c8ff7 # v2
