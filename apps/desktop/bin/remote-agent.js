@@ -464,6 +464,9 @@ async function start() {
 
   const daemon = new AgentDaemon(creds);
 
+  // M3: warm the workspace vector index before the first task (fire-and-forget).
+  import('../src/indexer.js').then(({ indexWorkspace }) => indexWorkspace({ force: false }).catch(() => {})).catch(() => {});
+
   try {
     daemon.start({ force });
   } catch (e) {

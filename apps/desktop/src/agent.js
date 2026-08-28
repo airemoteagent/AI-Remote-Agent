@@ -33,6 +33,10 @@ import { initOtel, startSpan, endSpan, setSpanAttrs } from './otel.js';
 import { VERSION } from './version.js';
 import { checkForUpdates, applyUpdate } from './update.js';
 import { currentMode } from './modes.js';
+import { buildEnvSnapshot } from './env.js';
+import { loadSessionContext } from './session.js';
+import { buildContext, summarizeBudget } from './context.js';
+import { loadSettings } from './settings.js';
 
 // The engine's parser is the single source of truth for brain replies.
 export { parseBrainReply };
@@ -724,7 +728,27 @@ export class AgentDaemon extends EventEmitter {
         const goalCtx = meta?.goal
           ? buildGoalRoundPrompt(this.#goals.get(meta.goal.id) || {}, meta.goal.roundNo)
           : '';
-        const systemPrompt = this.#toolsPrompt(cloudTask, brain, memoryCtx, recalled, vectorCtx, goalCtx);
+        const envCtx = buildEnvSnapshot();
+        const sessionCtx = await loadSessionContext();
+        // M5 context manager: budgeted composition (systemRules → env → persona → policy → skills → vector → sessions → memory)
+        let persona = '';
+        try { persona = loadSettings().systemPrompt || ''; } catch { /* default */ }
+        const skillsText = (this.#activeSkills || []).map((s) => `### Skill: ${s.name}
+${s.description || ''}${s.instructions || ''}`).join('\n\n');
+        const policySummary = `policy v${String(this.#policy?.version || '?')}: allow/deny/confirm per tool, deny-by-default, local-first (control plane cannot override)`;
+        const { prompt: contextPrompt, budgetLog } = buildContext({
+          task,
+          systemRules: '',
+          envSnapshot: envCtx,
+          persona,
+          policySummary,
+          skills: skillsText,
+          memoryContext: memoryCtx,
+          sessionContext: sessionCtx,
+          vectorContext: vectorCtx,
+        });
+        log.info(`Context: ${summarizeBudget(budgetLog)}`);
+        const systemPrompt = this.#toolsPrompt(cloudTask, brain, contextPrompt, recalled, goalCtx);
 
         // Loop events → dashboard + audit trace (never silent). Every event is
         // also written to the local hash-chained audit log (remote-agent audit),
@@ -1212,7 +1236,7 @@ export class AgentDaemon extends EventEmitter {
     }
   }
 
-  #toolsPrompt(taskRow, brain = this.#brain, memoryCtx = '', agentMemory = '', vectorCtx = '', goalCtx = '') {
+  #toolsPrompt(taskRow, brain = this.#brain, contextCtx = '', agentMemory = '', goalCtx = '') {
     const toolList = this.#activeTools || tools.list();
     const rows = toolList
       .map((t) => `- ${t.name}: ${t.description}${t.args ? ` (args: ${JSON.stringify(t.args)})` : ''}`)
@@ -1271,8 +1295,7 @@ Rules:
 - To create a Python GUI window, generate a tkinter script and run it with "python3 -c '...'" in the background.
 - Never invent data you can read with a tool. Keep answers short and direct.
 - If a command fails, diagnose and retry differently — never give up.`;
-    if (memoryCtx) p += memoryCtx;
-    if (vectorCtx) p += vectorCtx;
+    if (contextCtx) p += contextCtx;
     if (agentMemory) {
       p += `\n\n## Agent memory (auto-remembered from past tasks)\n${agentMemory}\n(Recall this before repeating work that may already be done.)`;
     }
