@@ -22,9 +22,10 @@ import { setAgentRoots } from './tools/files.js';
 import { security as shellSecurity } from './tools/shell.js';
 import { CLOUD } from './config.js';
 import { log } from './log.js';
-import { TaskLoop, Policy, Budget, MemoryStore, parseBrainReply, VectorStore, auditWrite, runSubtasks, MAX_SUB_STEPS, GoalStore, parseGoalMarker, buildGoalRoundPrompt, goalRoundTaskText, runWorkflow, RunStore, ToolCache, DEFAULT_TOOL_CACHE_PATH } from '@remote-agent/engine';
+import { TaskLoop, Policy, Budget, MemoryStore, parseBrainReply, VectorStore, auditWrite, runSubtasks, MAX_SUB_STEPS, GoalStore, parseGoalMarker, buildGoalRoundPrompt, goalRoundTaskText, runWorkflow, RunStore, ToolCache, DEFAULT_TOOL_CACHE_PATH, Cortex } from '@remote-agent/engine';
 import { TaskQueue } from './taskqueue.js';
 import { configureDelegateRunner } from './tools/delegate.js';
+import { configureCortex } from './tools/recall.js';
 import { configureGoalRunner } from './tools/goal.js';
 import { configureWorkflowRunner } from './tools/workflow.js';
 import { writePid, clearPid, alreadyRunning } from './daemon.js';
@@ -144,6 +145,7 @@ export class AgentDaemon extends EventEmitter {
   #budget;
   #memory;
   #toolCache;
+  #cortex;
   // Shared vector index (loaded lazily once) — notes + workspace files
   // searched semantically; feeds the per-task vector recall context.
   #vectorStore = null;
@@ -191,6 +193,7 @@ export class AgentDaemon extends EventEmitter {
     });
     this.#memory = new MemoryStore({});
     this.#toolCache = new ToolCache({ storePath: DEFAULT_TOOL_CACHE_PATH });
+    this.#cortex = new Cortex({});
 
     // Incomplete read-only runs can safely be resumed after a crash. Runs
     // containing unfinished side effects remain visible in the ledger but are
@@ -222,6 +225,8 @@ export class AgentDaemon extends EventEmitter {
 
     // The `delegate` tool dispatches through this daemon's brain/tools.
     configureDelegateRunner(async (req) => this.#runSubTasks(req));
+    // The `recall` tool re-hydrates archived context chunks (lossless).
+    configureCortex(this.#cortex);
     // The `goal` tool starts/resumes rounds through this daemon's queue.
     configureGoalRunner({
       start: async (req) => this.#startGoal(req),
@@ -767,7 +772,10 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
             auditWrite({ kind: 'task', event: 'think', runId, summary: truncate(String(text).slice(0, 300), 300) });
           });
           loop.on('compact', (info) => {
-            log.info(`Context compacted: ${info.before} → ${info.after} chars (${info.shortened} shortened, ${info.dropped} dropped)`);
+            const how = info.stored > 0
+              ? `${info.stored} archived losslessly (recall() restores full content)`
+              : `${info.shortened} shortened, ${info.dropped} dropped`;
+            log.info(`Context compacted: ${info.before} → ${info.after} chars (${how})`);
             this.#control.step('task.compact', { runId, ...info });
             auditWrite({ kind: 'task', event: 'compact', runId, ...info });
           });
@@ -857,6 +865,7 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
           maxSteps: brain.maxSteps,
           temperature: brain.temperature,
           toolCache: this.#toolCache,
+          cortex: this.#cortex,
         });
         wireLoop(loop);
 

@@ -8,6 +8,7 @@ export { PolicyRegistry, normalisePolicyRevision } from './policy-registry.js';
 export { Budget } from './budget.js';
 export { MemoryStore } from './memory.js';
 export { TaskLoop, parseBrainReply, compactMessages, normaliseToolResult } from './loop.js';
+export { Cortex, compactLossless, extractivePreview } from './cortex.js';
 export { ToolCache, DEFAULT_TOOL_CACHE_PATH } from './tool-cache.js';
 export { runSubtasks, buildSubSystemPrompt, MAX_SUBTASKS, MAX_SUB_PROMPT, MAX_SUB_STEPS } from './delegate.js';
 export { runWorkflow, validatePhases, buildPhaseContext, MAX_PHASES } from './workflow.js';

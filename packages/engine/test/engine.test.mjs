@@ -25,6 +25,13 @@ describe('policy', () => {
     assert.equal(p.check('sysinfo').allowed, true);
   });
 
+  it('allows every builtin M-module tool by default (no silent denial)', () => {
+    const p = new Policy(null);
+    for (const t of ['env', 'session', 'settings', 'discover', 'recall', 'vector', 'memory', 'delegate', 'goal', 'workflow']) {
+      assert.equal(p.check(t).allowed, true, t);
+    }
+  });
+
   it('honors explicit deny / confirm rules', () => {
     const p = new Policy({ tools: { web: 'deny', shell: 'confirm' } });
     assert.equal(p.check('web').allowed, false);

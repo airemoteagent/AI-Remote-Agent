@@ -12,6 +12,7 @@ import { EventEmitter } from 'node:events';
 import { Policy } from './policy.js';
 import { Budget } from './budget.js';
 import { ToolCache } from './tool-cache.js';
+import { compactLossless } from './cortex.js';
 
 const MAX_CORRECTIONS = 3;
 
@@ -233,13 +234,14 @@ export function compactMessages(messages, { maxChars = 40000, keepHead = 2, keep
 }
 
 export class TaskLoop extends EventEmitter {
-  constructor({ think, runTool, policy, budget, maxSteps = 8, temperature = 0.4, toolCache = null } = {}) {
+  constructor({ think, runTool, policy, budget, maxSteps = 8, temperature = 0.4, toolCache = null, cortex = null } = {}) {
     super();
     this.thinkFn = think;
     this.runToolFn = runTool;
     this.policy = policy instanceof Policy ? policy : new Policy(null);
     this.budget = budget instanceof Budget ? budget : new Budget({});
     this.toolCache = toolCache || new ToolCache({});
+    this.cortex = cortex || null;
     this.maxSteps = Math.min(16, Math.max(2, Number(maxSteps) || 8));
     this.baseTemperature = temperature;
   }
@@ -313,14 +315,19 @@ export class TaskLoop extends EventEmitter {
       // silently blowing the context window. Old middle turns are compressed
       // before the next think; the head and recent tail stay verbatim.
       if (maxChars > 0 && i > 0) {
-        const compacted = compactMessages(messages, { maxChars });
+        // With a cortex, compaction is LOSSLESS: the full middle is archived
+        // and replaced by recallable pointers — nothing is ever dropped.
+        const compacted = this.cortex
+          ? compactLossless(messages, { maxChars, cortex: this.cortex })
+          : compactMessages(messages, { maxChars });
         if (compacted.compressed) {
           this.emit('compact', {
             before: compacted.before,
             after: compacted.after,
             saved: compacted.before - compacted.after,
-            shortened: compacted.shortened,
-            dropped: compacted.dropped,
+            shortened: compacted.shortened ?? 0,
+            dropped: compacted.dropped ?? 0,
+            stored: compacted.stored ?? 0,
           });
           messages = compacted.messages;
         }

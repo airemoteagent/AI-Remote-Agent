@@ -34,8 +34,9 @@ import { env } from './env.js';
 import { session } from './session.js';
 import { settings } from './settings.js';
 import { discover } from './discover.js';
+import { recall } from './recall.js';
 
-const BUILTIN = [sysinfo, env, session, settings, discover, shell, files, net, apps, browser, web, memory, notify, vector, jobs, delegate, goal, workflow, plugin];
+const BUILTIN = [sysinfo, env, session, settings, discover, shell, files, net, apps, browser, web, memory, notify, vector, jobs, delegate, goal, workflow, plugin, recall];
 const TIMEOUT_MS = 30_000;
 
 // Policy choke point: EVERY tool invocation (daemon, brain loop, CLI exec)
