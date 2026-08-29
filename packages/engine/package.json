@@ -4,6 +4,7 @@
   "description": "remote agent core — policy-as-code, budget governor, structured memory, bounded task loop. Zero runtime dependencies.",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "main": "src/index.mjs",
   "exports": {
     ".": "./src/index.mjs"
