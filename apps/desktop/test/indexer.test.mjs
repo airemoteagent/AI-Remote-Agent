@@ -73,9 +73,17 @@ describe('indexWorkspace — inkrementelles Indexing', () => {
     assert.equal(r.updated, 3, JSON.stringify(r));
   });
 
-  test('mtime-Bump auf genau einer Datei → genau 1 neu indexiert', async () => {
+  test('mtime-Bump ohne Content-Änderung → keine Neu-Indexierung (content-addressed)', async () => {
     const t = new Date(Date.now() + 5000);
     fs.utimesSync(path.join(WS, 'a.txt'), t, t);
+    const r = await indexWorkspace();
+    assert.equal(r.indexed, 0, JSON.stringify(r)); // same content → skipped
+    assert.equal(r.updated, 0, JSON.stringify(r));
+    assert.equal(r.newFiles, 0, JSON.stringify(r));
+  });
+
+  test('Content-Änderung auf genau einer Datei → genau 1 neu indexiert', async () => {
+    fs.appendFileSync(path.join(WS, 'a.txt'), '\n# appended: alpha now uses port 65003');
     const r = await indexWorkspace();
     assert.equal(r.indexed, 1, JSON.stringify(r));
     assert.equal(r.updated, 1, JSON.stringify(r));
@@ -129,5 +137,27 @@ describe('indexSessionSummary + indexerStatus', () => {
     assert.equal(st.cachedFiles, 2); // a.txt + b.md (c.js wurde gelöscht)
     assert.equal(typeof st.lastRun, 'number');
     assert.ok(st.entries > 0);
+  });
+});
+
+describe('indexWorkspace — per-workspace sharding', () => {
+  test('ein Workspace-Index landet im eigenen Shard, nicht im globalen', async () => {
+    const wsRoot = path.join(TMP, 'ws_a');
+    fs.mkdirSync(wsRoot, { recursive: true });
+    fs.writeFileSync(path.join(wsRoot, 'only-in-a.txt'), 'workspace alpha exclusive content');
+
+    const r = await indexWorkspace({ workspace: 'ws_a', root: wsRoot });
+    assert.equal(r.indexed, 1, JSON.stringify(r));
+
+    // Per-workspace shard file exists; global store is untouched by this run.
+    const shard = path.join(path.dirname(STORE), 'vector-index-ws_a.json');
+    assert.ok(fs.existsSync(shard), 'per-workspace shard file written');
+    const shardData = JSON.parse(fs.readFileSync(shard, 'utf8'));
+    assert.ok(shardData.entries.length >= 1);
+    assert.ok(shardData.entries.some((e) => e.meta?.workspace === 'ws_a'));
+
+    // Global indexerStatus reflects only the global shard (still 2 cached files).
+    const st = await indexerStatus();
+    assert.equal(st.cachedFiles, 2);
   });
 });

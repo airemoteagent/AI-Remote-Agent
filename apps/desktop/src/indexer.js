@@ -1,41 +1,46 @@
-// M3 — VECTOR/KNOWLEDGE-AUSBAU: Auto-Index + inkrementelles Indexing.
+// Workspace index — auto-index + incremental, now per-workspace and
+// content-addressed. Each workspace gets its OWN vector shard and meta cache,
+// so 100s of files across many workspaces never pollute each other's search
+// and never re-transmit anything unchanged.
 //
-// indexWorkspace() walkt den Workspace (maxDepth 6), chunked jede Datei exakt
-// wie tools/vector.js (CHUNK 1200, Overlap 25%, safePath, binary-skip) und legt
-// die Chunks im lokalen VectorStore (@remote-agent/engine) ab. Ein mtime-Cache
-// (~/.remote-agent/vector-index-meta.json, file -> mtimeMs) macht das Ganze
-// inkrementell: nur neue oder geänderte Dateien werden neu indexiert, gelöschte
-// Dateien verschwinden aus Cache und Store.
+// Incremental logic (two tiers):
+//   1. mtime unchanged -> skip (no read, no hash).
+//   2. mtime changed -> read + sha256; if the CONTENT hash is unchanged (e.g.
+//      git checkout / editor touch), refresh mtime and skip re-chunking.
+// Only genuinely changed content is re-indexed.
 //
-// Sicherheit: indexierte Inhalte sind UNTRUSTED Daten. Dieses Modul baut keinen
-// Prompt und behandelt Dateiinhalte nie als Instruktionen. Alle I/O ist mit
-// try/catch geschützt — das Modul crasht nie und gibt keine Secrets aus.
+// Safety: indexed content is UNTRUSTED data; this module never builds a prompt
+// and never treats file content as instructions. All I/O is try/catch-guarded.
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { homedir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { VectorStore } from '@remote-agent/engine';
+import { workspaceVectorStorePath, sanitizeWorkspaceId } from './workspace-registry.js';
 
-// Pfade werden beim Import gelesen (wie tools/vector.js). Tests setzen die
-// Env-Variablen VOR dem Import, damit alles unter einem tmp-HOME landet.
 const WORKSPACE = process.env.REMOTE_WORKSPACE || path.join(homedir(), '.remote-agent', 'workspace');
-const STORE_PATH = process.env.REMOTE_VECTOR_STORE || path.join(homedir(), '.remote-agent', 'vector-index.json');
-const META_PATH = path.join(homedir(), '.remote-agent', 'vector-index-meta.json');
 
-const MAX_FILE_BYTES = 250_000; // identisch zu tools/vector.js
-const CHUNK_CHARS = 1200;       // identisch zu tools/vector.js
-const MAX_DEPTH = 6;            // identisch zu tools/vector.js
+const MAX_FILE_BYTES = 250_000; // identical to tools/vector.js
+const CHUNK_CHARS = 1200;       // identical to tools/vector.js
+const MAX_DEPTH = 6;            // identical to tools/vector.js
 const DEFAULT_MAX_FILES = 500;
 const MAX_NOTE = 4000;
 
 let lastRun = null;
+
+/** Per-workspace meta-cache path (sibling shard of the global one). */
+function metaPathFor(workspace) {
+  const id = sanitizeWorkspaceId(workspace);
+  return path.join(homedir(), '.remote-agent', id ? 'vector-index-meta-' + id + '.json' : 'vector-index-meta.json');
+}
 
 /** Resolve a path inside the workspace (same boundary rule as tools/vector.js). */
 export function safePath(p) {
   const r = path.resolve(WORKSPACE);
   const resolved = path.resolve(r, p);
   if (resolved !== r && !resolved.startsWith(r + path.sep)) {
-    throw new Error(`Path traversal denied: ${p}`);
+    throw new Error('Path traversal denied: ' + p);
   }
   return resolved;
 }
@@ -51,7 +56,7 @@ async function walkDir(dir, out, depth = 0) {
   return out;
 }
 
-/** Split text into overlapping chunks (CHUNK 1200, 25% overlap) — wie tools/vector.js. */
+/** Split text into overlapping chunks (CHUNK 1200, 25% overlap). */
 export function chunkText(text) {
   const chunks = [];
   let i = 0;
@@ -59,76 +64,84 @@ export function chunkText(text) {
     const slice = text.slice(i, i + CHUNK_CHARS);
     chunks.push(slice.trim());
     if (i + CHUNK_CHARS >= text.length) break;
-    i += Math.floor(CHUNK_CHARS * 0.75); // 25% Overlap hält Splits kohärent
+    i += Math.floor(CHUNK_CHARS * 0.75); // 25% overlap keeps splits coherent
   }
   return chunks.filter(Boolean);
 }
 
-async function readMeta() {
+async function readMeta(metaPath) {
   try {
-    const raw = await fs.readFile(META_PATH, 'utf8');
+    const raw = await fs.readFile(metaPath, 'utf8');
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-  } catch { /* fehlend oder korrupt → leer starten */ }
+  } catch { /* missing or corrupt -> start empty */ }
   return {};
 }
 
-async function writeMeta(meta) {
+async function writeMeta(metaPath, meta) {
   try {
-    await fs.mkdir(path.dirname(META_PATH), { recursive: true });
-    await fs.writeFile(META_PATH, JSON.stringify(meta, null, 2), { mode: 0o600 });
-  } catch { /* best-effort, nie crashen */ }
+    await fs.mkdir(path.dirname(metaPath), { recursive: true });
+    await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), { mode: 0o600 });
+  } catch { /* best-effort, never crash */ }
 }
 
-/** Entfernt alle Chunks einer Workspace-Datei aus dem Store (source: workspace). */
+/** Remove all chunks of a workspace file from the store (source: workspace). */
 function removeFileFromStore(vs, rel) {
   for (const e of [...vs.entries]) {
     if (e.meta?.source === 'workspace' && e.meta?.file === rel) vs.remove(e.id);
   }
 }
 
-/** Liest + chunked eine Datei; binary/empty/large werden übersprungen (wie vector.js). */
-async function indexFile(file, rel, vs, maxBytes) {
+/** True when the head of a text contains binary control characters. */
+function isBinaryHead(text) {
+  const head = text.slice(0, 4096);
+  for (let i = 0; i < head.length; i++) {
+    const c = head.charCodeAt(i);
+    if ((c >= 0 && c <= 8) || c === 11 || c === 12 || (c >= 14 && c <= 31)) return true;
+  }
+  return false;
+}
+
+/** Read + validate + hash a candidate file, without chunking yet. */
+async function readFileForIndex(file, maxBytes) {
   let st;
   try { st = await fs.stat(file); } catch { return { skipped: 'stat-failed' }; }
   if (st.size > maxBytes || st.size === 0) return { skipped: 'empty-or-large' };
   let text;
   try { text = await fs.readFile(file, 'utf8'); } catch { return { skipped: 'unreadable' }; }
   if (!text.trim()) return { skipped: 'empty' };
-  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text.slice(0, 4096))) return { skipped: 'binary' };
-  const chunks = chunkText(text);
-  for (const chunk of chunks) {
-    vs.add(chunk, { source: 'workspace', file: rel });
-  }
-  return { chunks: chunks.length, mtimeMs: st.mtimeMs };
+  if (isBinaryHead(text)) return { skipped: 'binary' };
+  return { text, hash: createHash('sha256').update(text).digest('hex'), mtimeMs: st.mtimeMs };
 }
 
 /**
- * Inkrementeller Workspace-Index.
- * @param {{force?: boolean, maxFiles?: number, maxBytes?: number}} opts
- * @returns {Promise<{indexed: number, skipped: number, newFiles: number, updated: number, errors: number, error?: string}>}
+ * Incremental workspace index, now per-workspace (own shard + meta cache).
+ * @param {{force?: boolean, maxFiles?: number, maxBytes?: number, workspace?: string, root?: string}} opts
+ *   - workspace: workspace id (tags entries AND selects the store/meta shard)
+ *   - root: absolute directory to index (defaults to the global WORKSPACE)
  */
-export async function indexWorkspace({ force = false, maxFiles = 500, maxBytes = 250000 } = {}) {
-  const vs = new VectorStore({ storePath: STORE_PATH });
-  const meta = await readMeta();
+export async function indexWorkspace({ force = false, maxFiles = 500, maxBytes = 250000, workspace = '', root = null } = {}) {
+  const ws = String(workspace || '');
+  const targetRoot = root ? path.resolve(root) : WORKSPACE;
+  const vs = new VectorStore({ storePath: workspaceVectorStorePath(ws) });
+  const metaPath = metaPathFor(ws);
+  const meta = await readMeta(metaPath);
   const started = Date.now();
   const limit = Math.max(1, Number(maxFiles) || DEFAULT_MAX_FILES);
   const byteCap = Number(maxBytes) > 0 ? Number(maxBytes) : MAX_FILE_BYTES;
   const result = { indexed: 0, skipped: 0, newFiles: 0, updated: 0, errors: 0 };
 
   try {
-    const wst = await fs.stat(WORKSPACE).catch(() => null);
+    const wst = await fs.stat(targetRoot).catch(() => null);
     if (!wst || !wst.isDirectory()) {
       lastRun = started;
-      return { ...result, error: `Workspace not found: ${WORKSPACE}` };
+      return { ...result, error: 'Workspace not found: ' + targetRoot };
     }
 
-    const files = (await walkDir(safePath('.'), [])).sort();
-    // Alle relativen Pfade (auch über maxFiles hinaus) — nur so werden
-    // gelöschte Dateien zuverlässig aus dem Cache entfernt.
-    const allRels = new Set(files.map((f) => path.relative(WORKSPACE, f)));
+    const files = (await walkDir(targetRoot, [])).sort();
+    const allRels = new Set(files.map((f) => path.relative(targetRoot, f)));
 
-    // Gelöschte Dateien aus Meta-Cache UND Store entfernen.
+    // Deleted files: remove from meta cache AND store.
     for (const rel of Object.keys(meta)) {
       if (!allRels.has(rel)) {
         delete meta[rel];
@@ -137,48 +150,60 @@ export async function indexWorkspace({ force = false, maxFiles = 500, maxBytes =
     }
 
     for (const file of files.slice(0, limit)) {
-      const rel = path.relative(WORKSPACE, file);
-      const prevMtime = meta[rel];
+      const rel = path.relative(targetRoot, file);
+      const prev = meta[rel];
+      const prevMtime = prev && typeof prev === 'object' ? prev.mtimeMs : prev;
+      const prevHash = prev && typeof prev === 'object' ? prev.hash : undefined;
       let st;
       try { st = await fs.stat(file); } catch { continue; }
       if (!st.isFile()) continue;
-      // Inkrementell: unveränderte Dateien (gleiche mtimeMs) überspringen.
+      // Tier 1: mtime unchanged -> skip (no read, no hash).
       if (!force && prevMtime !== undefined && st.mtimeMs === prevMtime) continue;
 
-      const out = await indexFile(file, rel, vs, byteCap);
+      const out = await readFileForIndex(file, byteCap);
       if (out.skipped) { result.skipped++; continue; }
+      // Tier 2: mtime changed but content identical -> refresh mtime only.
+      if (!force && prevHash && out.hash === prevHash) {
+        meta[rel] = { mtimeMs: st.mtimeMs, hash: prevHash };
+        continue;
+      }
 
-      meta[rel] = st.mtimeMs;
+      const chunks = chunkText(out.text);
+      for (const chunk of chunks) {
+        vs.add(chunk, { source: 'workspace', file: rel, workspace: ws });
+      }
+      meta[rel] = { mtimeMs: st.mtimeMs, hash: out.hash };
       result.indexed++;
-      if (prevMtime === undefined) result.newFiles++;
+      if (prev === undefined) result.newFiles++;
       else result.updated++;
     }
 
-    await writeMeta(meta);
+    await writeMeta(metaPath, meta);
     lastRun = started;
   } catch {
-    result.errors++; // nie crashen — Fehler wird im Ergebnis gemeldet
+    result.errors++; // never crash — error reported in result
   }
   return result;
 }
 
-/** Session-Zusammenfassung als Knowledge-Eintrag ablegen (source: session). */
+/** Session summary as a knowledge entry (source: session). */
 export async function indexSessionSummary(text, meta = {}) {
   try {
     const body = String(text || '').trim().slice(0, MAX_NOTE);
     if (!body) return { ok: false, error: 'text required' };
-    const vs = new VectorStore({ storePath: STORE_PATH });
-    const r = vs.add(body, { source: 'session', ...meta });
+    const ws = String(meta.workspace || '');
+    const vs = new VectorStore({ storePath: workspaceVectorStorePath(ws) });
+    const r = vs.add(body, { source: 'session', workspace: ws, ...meta });
     return { ok: true, id: r.id, merged: r.merged };
   } catch (err) {
     return { ok: false, error: err.message };
   }
 }
 
-/** Aktueller Indexer-Zustand: Store-Größe, letzter Lauf, Workspace, Cache. */
+/** Current indexer state (global shard): store size, last run, cache. */
 export async function indexerStatus() {
-  const vs = new VectorStore({ storePath: STORE_PATH });
-  const meta = await readMeta();
+  const vs = new VectorStore({ storePath: workspaceVectorStorePath('') });
+  const meta = await readMeta(metaPathFor(''));
   return {
     entries: vs.stats().entries,
     lastRun,

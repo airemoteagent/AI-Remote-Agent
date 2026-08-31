@@ -13,12 +13,16 @@ import { EventEmitter } from 'node:events';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { think, pollTasks, claimTask, taskResult, postActivity, runStart, runStep, runFinish } from './cloud.js';
+import { think, pollTasks, claimTask, taskResult, postActivity, runStart, runStep, runFinish, pollWorkspaceOps, claimWorkspaceOp, workspaceOpResult, syncWorkspaces } from './cloud.js';
 import { loadProviderConfig, localThink, transportMode, requireLocalProvider } from './transport/local.js';
 import { ControlChannel } from './control.js';
 import { tools } from './tools/index.js';
 import { setAgentAllow as setAgentShellAllow } from './tools/shell.js';
-import { setAgentRoots } from './tools/files.js';
+import { setAgentRoots, runWithAgentRoots } from './tools/files.js';
+import { executeWorkspaceOperation } from './workspace-ops.js';
+import { resolveWorkspaceRoot, workspaceVectorStorePath, discoverLocalWorkspaces, workspaceIdentityHash } from './workspace-registry.js';
+import { buildWorkspaceManifest } from './workspace-map.js';
+import { indexWorkspace } from './indexer.js';
 import { security as shellSecurity } from './tools/shell.js';
 import { CLOUD } from './config.js';
 import { log } from './log.js';
@@ -44,6 +48,7 @@ export { parseBrainReply };
 
 const MAX_RETRIES = 3;       // transient failures (network, 429, 5xx)
 const TASK_POLL_MS = 2000;   // sngine platform: poll the cloud task queue
+const WORKSPACE_SYNC_MS = 5 * 60 * 1000; // device -> cloud workspace reconciliation cadence
 const TOOL_OUT_MAX = 4000;   // chars of tool output fed back to the brain
 const MAX_DELEGATE_DEPTH = 2; // a sub-agent may not nest delegation deeper
 
@@ -78,13 +83,18 @@ const RETRIABLE = /429|5\d\d|fetch failed|network|ECONN|ETIMEDOUT|socket|timeout
  * This is the "smart retrieval" layer — the brain starts each task with the
  * most relevant knowledge, not just everything ever written.
  */
-export function loadVectorContext(task, { limit = 4, threshold = 0.12, maxChars = 1800, store = null } = {}) {
+export function loadVectorContext(task, { limit = 4, threshold = 0.12, maxChars = 1800, store = null, workspace = null } = {}) {
   try {
     const query = String(task || '');
     if ((query.toLowerCase().match(/[a-z0-9]{2,}/g) || []).length < 2) return '';
     const vs = store || new VectorStore({});
     if (!vs.stats().entries) return '';
-    const hits = vs.search(query, { limit: Math.max(limit * 3, limit), threshold });
+    // Workspace namespace isolation: a requested workspace searches its own
+    // entries plus global (unscoped) notes; other workspaces never surface.
+    const filter = workspace == null
+      ? null
+      : (e) => { const w = String(e.meta?.workspace || ''); return w === '' || w === String(workspace); };
+    const hits = vs.search(query, { limit: Math.max(limit * 3, limit), threshold, filter });
     if (!hits.length) return '';
     const parts = [];
     const sources = new Set();
@@ -138,6 +148,7 @@ export class AgentDaemon extends EventEmitter {
   #currentTask = null;
   #currentSignal = null; // AbortSignal of the running task — cloud "stop" aborts it
   #taskPoll = null;
+  #wsSyncTimer = null;
   #polling = false;
   // Engine core: policy-as-code, budget governor, structured memory.
   // Shared across tasks; each task gets its own TaskLoop over these.
@@ -329,7 +340,15 @@ export class AgentDaemon extends EventEmitter {
       task,
       cloudTask,
       meta,
-      run: (job) => this.#runTask(job.task, job.runId, job.cloudTask || null, job.meta || null, job.signal),
+      run: (job) => {
+        const caps = job.cloudTask?.capabilities;
+        const ws = String(job.cloudTask?.workspace_id || '');
+        let roots;
+        if (caps?.security === 'locked') roots = ws ? [resolveWorkspaceRoot(ws)] : [];
+        else if (ws) roots = [resolveWorkspaceRoot(ws)];
+        else roots = caps?.paths?.allow || null;
+        return runWithAgentRoots(roots, () => this.#runTask(job.task, job.runId, job.cloudTask || null, job.meta || null, job.signal));
+      },
     });
   }
 
@@ -384,6 +403,37 @@ export class AgentDaemon extends EventEmitter {
     if (CLOUD.platform !== 'sngine' || this.#taskPoll) return;
     this.#taskPoll = setInterval(() => this.#pollTasks(), TASK_POLL_MS);
     this.#pollTasks();
+    // Device -> cloud workspace reconciliation: report local roots so a
+    // workspace created directly on the device surfaces in the dashboard.
+    this.#syncLocalWorkspaces();
+    this.#wsSyncTimer = setInterval(() => this.#syncLocalWorkspaces(), WORKSPACE_SYNC_MS);
+  }
+
+  /** Report local workspace roots to the cloud; never sends an absolute path. */
+  async #syncLocalWorkspaces() {
+    try {
+      const local = discoverLocalWorkspaces();
+      if (!local.length) return;
+      const deviceId = String(this.#creds.deviceId || this.#creds.device_id || '');
+      const manifest = local.map((w) => ({
+        workspace_id: w.workspaceId,
+        root_label: w.rootLabel,
+        local_identity_hash: workspaceIdentityHash(deviceId, w.root),
+        // A device-owner link may be read-only; the device reports its OWN
+        // posture and the cloud may never widen it.
+        access_mode: w.accessMode || 'read_write',
+        file_count: w.fileCount,
+        bytes: w.bytes,
+        capabilities: { files: true, preview: true, diff: true, version: 1 },
+        // Raw file facts (paths/sizes/mtimes) — never file bodies. The cloud
+        // brain derives all structure from this, so the device sends no insight.
+        manifest: buildWorkspaceManifest(w.root).files,
+      }));
+      const res = await syncWorkspaces(this.#creds.apiKey, manifest);
+      log.info(`Workspace sync: reported ${manifest.length} local root(s); cloud has ${Array.isArray(res.bindings) ? res.bindings.length : 0} binding(s)`);
+    } catch (err) {
+      log.debug(`Workspace sync failed: ${err.message}`);
+    }
   }
 
   async #pollTasks() {
@@ -417,6 +467,19 @@ export class AgentDaemon extends EventEmitter {
         // again before our claim is reflected).
         this.#enqueueTask(t.run_id, t.task, t);
       }
+
+      // Typed workspace operations share this poll cadence but execute outside
+      // the language-model loop: deterministic, cheaper, and fully auditable.
+      const workspaceData = await pollWorkspaceOps(this.#creds.apiKey).catch(() => ({ operations: [] }));
+      for (const op of workspaceData.operations || []) {
+        const claim = await claimWorkspaceOp(this.#creds.apiKey, op.op_id).catch(() => null);
+        if (!claim?.claimed) continue;
+        let outcome;
+        try { outcome = await executeWorkspaceOperation(op); }
+        catch (error) { outcome = { status: 'failed', errorCode: 'executor_error', error: error.message }; }
+        await workspaceOpResult(this.#creds.apiKey, op.op_id, outcome).catch((error) => log.debug(`Workspace result report failed: ${error.message}`));
+        auditWrite({ kind: 'workspace.operation', opId: op.op_id, workspaceId: op.workspace_id, operation: op.op_type, status: outcome.status });
+      }
     } catch (err) {
       log.debug(`Task poll failed: ${err.message}`);
     } finally {
@@ -442,7 +505,7 @@ export class AgentDaemon extends EventEmitter {
    * brain answered. Local mode keeps every prompt on-device; the cloud
    * still coordinates tasks, cron and the audit trail.
    */
-  async #brainThink({ messages, tools: toolList, temperature, profile, onChunk, onUsage }) {
+  async #brainThink({ messages, tools: toolList, temperature, profile, onChunk, onUsage, workspaceId = '', workspaceManifest = null }) {
     if (this.#localConfig) {
       return localThink({
         config: this.#localConfig,
@@ -461,6 +524,8 @@ export class AgentDaemon extends EventEmitter {
       onChunk,
       onUsage,
       signal:  this.#currentSignal || undefined,
+      workspaceId,
+      workspaceManifest,
     });
   }
 
@@ -474,6 +539,8 @@ export class AgentDaemon extends EventEmitter {
           tools:   this.#activeTools || tools.list(),
           temperature: opts.temperature ?? this.#brain.temperature,
           profile: opts.profile ?? null,
+          workspaceId: opts.workspaceId ?? '',
+          workspaceManifest: opts.workspaceManifest ?? null,
           onChunk: (delta) => {
             this.#control.token(delta, runId);
             this.emit('task:token', delta, runId);
@@ -641,6 +708,9 @@ export class AgentDaemon extends EventEmitter {
     const steps = [];
     let final = '';
     const sngine = CLOUD.platform === 'sngine';
+    // Workspace binding: the control plane stamps the workspace on the task;
+    // the daemon carries it into memory, vector recall and decision history.
+    const ws = String(cloudTask?.workspace_id || '');
     // Per-task brain: the cloud decides mode-aware settings for each task
     // (auto = best of smart & cheap, computed server-side per task).
     const brain = {
@@ -667,7 +737,16 @@ export class AgentDaemon extends EventEmitter {
     const locked = agentCaps?.security === 'locked';
     const LOCKED_TOOLS = ['sysinfo', 'files', 'memory'];
     setAgentShellAllow(locked ? [] : (agentCaps?.shell?.allow || null));
-    setAgentRoots(locked ? [] : (agentCaps?.paths?.allow || null));
+    // Workspace isolation: a workspace-bound task is confined to that
+    // workspace's local root (never the daemon's unscoped home). A locked run
+    // stays confined too; a non-workspace task keeps the legacy paths.allow.
+    if (locked) {
+      setAgentRoots(ws ? [resolveWorkspaceRoot(ws)] : []);
+    } else if (ws) {
+      setAgentRoots([resolveWorkspaceRoot(ws)]);
+    } else {
+      setAgentRoots(agentCaps?.paths?.allow || null);
+    }
     this.#activeTools = locked
       ? tools.list().filter((t) => LOCKED_TOOLS.includes(t.name))
       : (agentCaps && Array.isArray(agentCaps.tools) && agentCaps.tools.length
@@ -707,6 +786,8 @@ export class AgentDaemon extends EventEmitter {
         await runStart(this.#creds.apiKey, {
           runId, agentId: this.#creds.agentId, taskId: cloudTask?.id ?? 0, message: task,
         });
+        await trace('lifecycle', { summary: 'Understand · workspace, objective, constraints', detail: JSON.stringify({ phase: 'understand', runId, policyRevision: String(this.#policy.version || ''), workspace: cloudTask?.workspace_id || null }) });
+        await trace('lifecycle', { summary: 'Plan · acceptance, risks, actions, verification', detail: JSON.stringify({ phase: 'plan', verify: brain.verify, maxSteps: brain.maxSteps }) });
       } catch (err) {
         log.debug(`runStart failed: ${err.message}`);
       }
@@ -725,9 +806,25 @@ export class AgentDaemon extends EventEmitter {
         // policy checks, budget steering, corrective nudges and a forced
         // conclusion. This daemon supplies the brain (cloud think), the tools
         // and the trace plumbing — every step stays visible.
+        // Smart retrieval: for a workspace-bound task, index that workspace
+        // (incremental + content-addressed) and recall from ITS shard, so the
+        // brain sees only relevant chunks — never the whole tree, never other
+        // workspaces' files.
+        let vectorStore = this.#getVectorStore();
+        if (ws) {
+          await indexWorkspace({ workspace: ws, root: resolveWorkspaceRoot(ws) }).catch(() => {});
+          vectorStore = new VectorStore({ storePath: workspaceVectorStorePath(ws) });
+        }
+        // Workspace orientation is derived by the cloud brain from raw facts;
+        // this device only reports the manifest (paths/sizes/mtimes) and never
+        // computes or ships any structure.
+        let workspaceManifestForRun = null;
+        try {
+          if (ws) workspaceManifestForRun = buildWorkspaceManifest(resolveWorkspaceRoot(ws));
+        } catch { /* orientation is best-effort; a run never fails on it */ }
         const memoryCtx = loadMemoryContext();
-        const recalled = this.#memory.recall(task, { limit: 5 }).map((e) => e.text).join('\n');
-        const vectorCtx = loadVectorContext(task, { store: this.#getVectorStore() });
+        const recalled = this.#memory.recall(task, { limit: 5, workspace: ws || null }).map((e) => e.text).join('\n');
+        const vectorCtx = loadVectorContext(task, { store: vectorStore, workspace: ws || null });
         // Goal rounds append the objective + every previous round's summary
         // to the system prompt, and require a GOAL_COMPLETE marker at the end.
         const goalCtx = meta?.goal
@@ -753,7 +850,9 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
           vectorContext: vectorCtx,
         });
         log.info(`Context: ${summarizeBudget(budgetLog)}`);
-        const systemPrompt = this.#toolsPrompt(cloudTask, brain, contextPrompt, recalled, goalCtx);
+        trace('budget', { tool: 'context', summary: summarizeBudget(budgetLog), detail: JSON.stringify(budgetLog) });
+        const acceptance = Array.isArray(cloudTask?.acceptance) && cloudTask.acceptance.length ? '\n\n## Acceptance criteria (verify each before claiming success)\n' + cloudTask.acceptance.map((a) => '- [' + (a.status === 'met' ? 'x' : ' ') + '] ' + String(a.criteria || '')).join('\n') : '';
+        const systemPrompt = this.#toolsPrompt(cloudTask, brain, contextPrompt, recalled, goalCtx) + acceptance;
 
         // Loop events → dashboard + audit trace (never silent). Every event is
         // also written to the local hash-chained audit log (remote-agent audit),
@@ -786,7 +885,8 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
             this.emit('tool:start', name, args);
             log.info(`Tool call: ${name}`);
             postActivity(this.#creds.apiKey, 'tool.call', { tool: name, args }, runId, this.#creds.agentId).catch(() => {});
-            trace('tool.call', { summary: name, detail: JSON.stringify(args || {}, null, 2) });
+            trace('lifecycle', { tool: name, summary: `Execute · ${name}`, detail: JSON.stringify({ phase: 'execute', tool: name }) });
+            trace('tool.call', { tool: name, summary: name, detail: JSON.stringify(args || {}, null, 2) });
             auditWrite({ kind: 'task', event: 'tool', runId, tool: name, args: truncate(JSON.stringify(args || {}), 500) });
             toolSpans.set(name, startSpan(`tool.${name}`, { runId: String(runId) }));
           });
@@ -795,7 +895,7 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
             const outStr = truncate(JSON.stringify(out), TOOL_OUT_MAX);
             steps.push({ type: 'tool.result', tool: name, output: truncate(outStr, 400) });
             postActivity(this.#creds.apiKey, 'tool.result', { tool: name, output: truncate(outStr, 200) }, runId, this.#creds.agentId).catch(() => {});
-            trace('tool.result', { summary: truncate(outStr, 500), detail: truncate(outStr, 4000) });
+            trace('tool.result', { tool: name, summary: truncate(outStr, 500), detail: truncate(outStr, 4000) });
             auditWrite({ kind: 'task', event: 'tool:result', runId, tool: name, output: truncate(outStr, 500) });
             log.info(`Tool result (${name}): ${truncate(outStr, 120)}`);
             const toolSpan = toolSpans.get(name);
@@ -835,6 +935,8 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
             temperature: prof?.temperature ?? brain.temperature,
             // 'standard' means no steering — let the cloud auto-pick.
             profile: prof?.profile && prof.profile !== 'standard' ? prof.profile : (brain.profile ?? null),
+            workspaceId: ws,
+            workspaceManifest: ws ? workspaceManifestForRun : null,
           });
           if (res.usage) addUsage(res.usage);
           if (res.model) lastModel = res.model;
@@ -954,11 +1056,11 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
         const cmsg = 'Task cancelled.';
         if (sngine && runId) {
           try {
-            await runFinish(this.#creds.apiKey, runId, { status: 'cancelled', error: 'cancelled', model: lastModel, provider: lastProvider, usage: usageTotals, durationMs: Date.now() - t0 });
+            await runFinish(this.#creds.apiKey, runId, { status: 'cancelled', error: 'cancelled', model: lastModel, provider: lastProvider, usage: usageTotals, durationMs: Date.now() - t0, mode: brain.mode || '' });
           } catch (fe) { log.debug(`runFinish cancelled failed: ${fe.message}`); }
         }
-        if (cloudTask) await this.#reportResult(cloudTask, cmsg, steps, { runId, usage: usageTotals, model: lastModel, provider: lastProvider });
-        try { this.#memory.learnFromRun(task, cmsg, { outcome: 'cancelled' }); } catch { /* memory is best-effort */ }
+        if (cloudTask) await this.#reportResult(cloudTask, cmsg, steps, { runId, usage: usageTotals, model: lastModel, provider: lastProvider, mode: brain.mode || '' });
+        try { this.#memory.learnFromRun(task, cmsg, { outcome: 'cancelled', workspace: ws }); } catch { /* memory is best-effort */ }
         endSpan(taskSpan, false);
         return;
       }
@@ -979,13 +1081,14 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
             provider: lastProvider,
             usage: usageTotals,
             durationMs: Date.now() - t0,
+            mode: brain.mode || '',
           });
         } catch (fe) {
           log.debug(`runFinish failed: ${fe.message}`);
         }
       }
-      if (cloudTask) await this.#reportResult(cloudTask, msg, steps, { runId, usage: usageTotals, model: lastModel, provider: lastProvider });
-      try { this.#memory.learnFromRun(task, msg, { outcome: 'failure' }); } catch { /* memory is best-effort */ }
+      if (cloudTask) await this.#reportResult(cloudTask, msg, steps, { runId, usage: usageTotals, model: lastModel, provider: lastProvider, mode: brain.mode || '' });
+      try { this.#memory.learnFromRun(task, msg, { outcome: 'failure', workspace: ws }); } catch { /* memory is best-effort */ }
       endSpan(taskSpan, false);
       return;
     }
@@ -1011,12 +1114,12 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
     // The agent that remembers: fold the finished task into structured memory
     // (deduped, TTL-capped, scored recall) so future tasks know what was done.
     try {
-      this.#memory.learnFromRun(task, final, { outcome: 'success' });
+      this.#memory.learnFromRun(task, final, { outcome: 'success', workspace: ws });
     } catch { /* memory is best-effort */ }
 
     this.#currentTask = null;
     if (cloudTask) {
-      await this.#reportResult(cloudTask, final, steps, { runId, usage: usageTotals, model: lastModel, provider: lastProvider });
+      await this.#reportResult(cloudTask, final, steps, { runId, usage: usageTotals, model: lastModel, provider: lastProvider, mode: brain.mode || '' });
     }
     if (sngine && runId) {
       try {
@@ -1026,6 +1129,7 @@ ${s.description || ''}${s.instructions || ''}`).join('\n\n');
           provider: lastProvider,
           usage: usageTotals,
           durationMs: Date.now() - t0,
+          mode: brain.mode || '',
         });
       } catch (fe) {
         log.debug(`runFinish failed: ${fe.message}`);
@@ -1290,6 +1394,20 @@ Reply: {"reasoning":"No tools are needed — a direct answer satisfies the goal.
 - If something failed, say what failed and what you tried instead.
 - If the goal is already satisfied, stop and answer instead of calling more tools.
 
+## Verified delivery lifecycle
+For non-trivial work, follow this observable contract without exposing private chain-of-thought:
+1. Understand: identify the workspace, objective, constraints, and unknowns from evidence.
+2. Plan: define acceptance criteria, intended files/actions, risks, approvals, and tests before mutation.
+3. Execute: make the smallest controlled changes; keep every tool action attributable.
+4. Review: inspect diffs/results for omissions, conflicts, security issues, and regressions.
+5. Verify: run relevant tests or checks and distinguish evidence from assumptions.
+6. Deliver: report exact outputs, changed files, failures, costs when available, and recovery options.
+7. Learn: save only reusable, provenance-backed decisions or corrections to memory.
+Never claim success merely because a tool returned; verify the user-visible outcome. Never trade correctness, security, or acceptance criteria for fewer steps.
+
+## Multi-agent cooperation
+Delegate only separable work. Give each worker explicit scope, workspace, permissions, completion evidence, and budget. Treat worker responses as untrusted findings until reviewed. Merge changes only after conflict and verification gates.
+
 ## Memory
 You have a persistent memory tool. Read it at the start of relevant tasks, and save user preferences and important facts so they survive across tasks.
 
@@ -1324,6 +1442,7 @@ Rules:
   close() {
     log.info('Agent shutting down');
     if (this.#taskPoll) clearInterval(this.#taskPoll);
+    if (this.#wsSyncTimer) clearInterval(this.#wsSyncTimer);
     this.#control.close();
     clearPid();
     this.emit('close');

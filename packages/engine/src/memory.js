@@ -61,13 +61,16 @@ export class MemoryStore {
     return e.vector;
   }
 
-  remember(text, { ttlDays = DEFAULT_TTL_DAYS, tags = [], source = 'agent', scope = 'local', confidence = 0.5, sensitivity = 'normal', outcome = 'neutral' } = {}) {
+  remember(text, { ttlDays = DEFAULT_TTL_DAYS, tags = [], source = 'agent', scope = 'local', confidence = 0.5, sensitivity = 'normal', outcome = 'neutral', workspace = '' } = {}) {
     const body = String(text || '').trim();
     if (!body) return null;
+    const ws = String(workspace || '');
 
-    // Dedupe: if an existing entry is nearly identical, refresh it instead.
+    // Dedupe: if an existing entry in the SAME namespace is nearly identical,
+    // refresh it instead. Workspace memories never dedupe across workspaces.
     const v = Array.from(embed(body));
     for (const e of this.entries) {
+      if ((e.workspace || '') !== ws) continue;
       if (cosine(v, this.#vec(e)) >= DEDUPE_THRESHOLD) {
         e.text = body;
         e.vector = v;
@@ -79,6 +82,7 @@ export class MemoryStore {
         e.confidence = Math.min(1, Math.max(0, Number(confidence) || 0));
         e.sensitivity = String(sensitivity || 'normal');
         e.outcome = String(outcome || 'neutral');
+        e.workspace = ws;
         e.revoked = false;
         e.hits = (e.hits || 0) + 1;
         this.#save();
@@ -96,6 +100,7 @@ export class MemoryStore {
       confidence: Math.min(1, Math.max(0, Number(confidence) || 0)),
       sensitivity: String(sensitivity || 'normal'),
       outcome: String(outcome || 'neutral'),
+      workspace: ws,
       revoked: false,
       createdAt: Date.now(),
       hits: 1,
@@ -111,13 +116,17 @@ export class MemoryStore {
    * Vector recall: cosine similarity with the query (0.7) + recency decay
    * (0.2) + hit boost (0.1). TTL-expired entries are never returned.
    */
-  recall(query, { limit = 8 } = {}) {
+  recall(query, { limit = 8, workspace = null } = {}) {
     const q = normalize(query);
     const qv = embed(q.join(' '));
     const now = Date.now();
     const results = [];
+    const ws = workspace == null ? null : String(workspace);
     for (const e of this.entries) {
       if (e.revoked) continue;
+      // Namespace isolation: a requested workspace sees its own entries plus
+      // global (unscoped) entries; other workspaces are never returned.
+      if (ws !== null && (e.workspace || '') !== '' && (e.workspace || '') !== ws) continue;
       const ageDays = (now - e.createdAt) / 86400000;
       if (ageDays > (e.ttlDays || DEFAULT_TTL_DAYS)) continue;
       const cos = q.length ? cosine(qv, this.#vec(e)) : 0;
@@ -167,9 +176,9 @@ export class MemoryStore {
    * Fold a finished run into structured memory with an outcome signal, so
    * future recall favors what worked and keeps failures as avoid-lessons.
    */
-  learnFromRun(task, result, { outcome = 'neutral', tags = [], ttlDays = DEFAULT_TTL_DAYS, ...rest } = {}) {
+  learnFromRun(task, result, { outcome = 'neutral', tags = [], ttlDays = DEFAULT_TTL_DAYS, workspace = '', ...rest } = {}) {
     const body = 'Task: ' + String(task || '').slice(0, 200) + ' | Result: ' + String(result || '').slice(0, 600);
-    return this.remember(body, { tags: ['task', 'outcome:' + outcome].concat(Array.isArray(tags) ? tags : []), ttlDays, outcome, ...rest });
+    return this.remember(body, { tags: ['task', 'outcome:' + outcome].concat(Array.isArray(tags) ? tags : []), ttlDays, outcome, workspace, ...rest });
   }
 
   stats() {

@@ -192,12 +192,13 @@ export class VectorStore {
    * @param {number} [opts.threshold=0.1] minimum cosine to return
    * @param {number} [opts.recencyWeight=0] 0–1 — blend of recency (0..1) with cosine
    */
-  search(query, { limit = 8, threshold = SEARCH_THRESHOLD, recencyWeight = 0 } = {}) {
+  search(query, { limit = 8, threshold = SEARCH_THRESHOLD, recencyWeight = 0, filter = null } = {}) {
     const qv = embed(query, this.dim);
     const now = Date.now();
     const results = [];
     for (const e of this.entries) {
       if (e.ttlDays != null && (now - e.createdAt) / 86400000 > e.ttlDays) continue;
+      if (typeof filter === 'function' && !filter(e)) continue;
       const cos = cosine(qv, this.#vec(e));
       if (cos < threshold) continue;
       const ageDays = Math.max(0, (now - e.createdAt) / 86400000);

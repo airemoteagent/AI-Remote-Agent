@@ -1,62 +1,43 @@
-# Verified Operations Runbooks
+# Verified operations runbooks
 
-These runbooks are deliberately narrow. They do not grant tools or weaken local policy. Each action remains subject to the device policy and requires explicit human approval where configured. They are tested with static fixtures; production deployment still requires environment-specific pilot evidence.
+These runbooks are evidence-led and non-autonomous. Local policy remains authoritative; every mutating action requires explicit approval when policy or the user requires it. Record commands, outputs, timestamps, device identity, policy verdict, and recovery evidence in the audit trail.
 
 ## Disk full
 
-1. Inspect capacity with an approved `df` invocation and identify the affected mounted volume.
-2. Inspect only approved workspace/application paths. Propose candidates; do not delete based solely on age or size.
-3. Obtain approval for each cleanup. Use the files tool's trash-first deletion behavior; record expected and observed free space.
-4. Verify reclaimed capacity and service health. Escalate if the volume is still above its threshold.
-
-**Success:** free-space threshold is met and the affected service remains healthy.  
-**Rollback:** restore from trash where possible; otherwise escalate.  
-**Fixture evidence:** `apps/desktop/test/fixtures/runbooks/disk-pressure/`.
+1. Verify filesystem pressure with read-only diagnostics and identify the mount, size, use percentage, and largest safe candidates.
+2. Do not delete data automatically. Propose bounded cleanup and request approval before mutation.
+3. Prefer reversible cleanup. Verify free space afterwards. **Rollback** means restore moved data from trash or stop the cleanup.
+4. Escalate when pressure risks application integrity, the target is not an approved workspace, or verification disagrees with the original measurement.
 
 ## Service down
 
-1. Capture the service manager status and recent, redacted service logs.
-2. Classify the failure (configuration, dependency, resource pressure, process crash, or unknown).
-3. Present a restart plan and require approval. Never restart an unrecognized service or one outside local policy.
-4. Verify the manager reports active/running and check the approved external health signal.
-
-**Success:** service is active and the selected health check succeeds.  
-**Rollback/escalation:** do not loop restarts; stop after the configured attempt limit and escalate with captured evidence.  
-**Fixture evidence:** `apps/desktop/test/fixtures/runbooks/service-down/`.
+1. Collect service status, logs, listening ports, health endpoint, recent changes, and dependency state without changing configuration.
+2. Form a minimal recovery plan. Restart, configuration change, or failover requires approval and local-policy permission.
+3. Verify health, logs, dependency reachability, and user-visible function after each action.
+4. Rollback to the last known-good configuration or escalate to an operator when recovery is uncertain.
 
 ## Certificate expiry
 
-1. Inspect certificate metadata from a supplied PEM or approved endpoint; record subject, issuer, serial, and expiry without private key material.
-2. Compare expiry to the alert threshold. Renewal remains a planned, explicitly authorized operation.
-3. For an expired or near-expiry certificate, create an escalation/renewal plan and require approval before any side effect.
-4. Verify a replacement certificate's identity, validity interval, and deployment health.
-
-**Success:** replacement satisfies the expected identity and expiry policy.  
-**Rollback/escalation:** retain the previous known-good certificate and escalate when identity or chain verification fails.  
-**Fixture evidence:** `apps/desktop/test/fixtures/runbooks/certificate-expiry/`.
+1. Read certificate subject, issuer, validity dates, trust chain, and affected endpoint.
+2. Never replace a certificate or private key without approval, ownership verification, and a reversible deployment plan.
+3. Verify the renewed certificate, chain, hostname, TLS handshake, and expiry date. Escalation is required for unknown ownership or chain failures.
 
 ## Network down
 
-1. Capture the host's routing and reachability state with approved read-only commands (`ip`, `ping`, `traceroute`, `nslookup`, or the platform equivalent). Never reconfigure an interface as a diagnostic step.
-2. Classify the failure: local interface down, DNS resolution failure, gateway/next-hop unreachable, upstream loss, or unknown.
-3. Present a remediation plan and require approval before any side effect (interface restart, route change, resolver change, service restart). Do not bring down a healthy interface or change routes without a rollback plan.
-4. Verify with a health signal (successful resolution and reachability of the approved endpoint) and record before/after observations.
-
-**Success:** the approved endpoint resolves and is reachable, and the affected service's network-dependent health check succeeds.  
-**Rollback/escalation:** capture the previous known-good route/resolver/interface state before any change and restore it on failure; escalate when the failure is upstream or outside the managed boundary.  
-**Fixture evidence:** `apps/desktop/test/fixtures/runbooks/network-down/`.
+1. Capture interface state, route, DNS, gateway reachability, and a bounded public connectivity probe.
+2. Do not modify routes, firewall rules, VPN settings, or DNS without approval and local-policy authorization.
+3. Verify each layer after a reversible approved change. Rollback changed settings or escalate with the collected evidence when connectivity is still unavailable.
 
 ## Versioning policy
 
-Every runbook is a versioned document. A breaking change to steps, approval rules, verification criteria, or rollback behavior increments the minor version; a wording-only or non-semantic correction increments the patch version. The current version is recorded in the runbook header, and the git history is the authoritative changelog. Pilot or fixture evidence is tagged with the runbook version it exercised, so an operator can reconstruct exactly which procedure produced a given outcome.
+- Every deployed artifact has an immutable version and SHA-256 digest.
+- Preserve the previous known-good artifact and configuration before upgrade.
+- Use staged rollout: canary, measured validation, then wider rollout.
+- Stop and rollback on failed health, audit, security, or acceptance gates.
+- Never silently downgrade policy, audit integrity, or approval requirements.
 
 ## Failover, escalation & manual intervention
 
-1. **Stop at the boundary.** A runbook never loops an action that failed verification. After the configured attempt limit, stop and escalate.
-2. **Escalate with evidence.** Escalation must carry the run id, policy revision, approval decision, attempt history, before/after observations, and the recovery/rollback decision.
-3. **Manual intervention.** Any change outside the runbook's allowed commands is a manual intervention: record the actor, the exact action, the reason the runbook was insufficient, and the outcome in the durable run ledger.
-4. **Failover.** Where a service supports failover, prefer failing over to a known-good instance before attempting an in-place repair, and verify the failover target before cutting traffic.
-
-## Evidence requirements
-
-For any production pilot, retain run id, policy revision, approval decision, tool attempts, before/after observations, verification result, and recovery/rollback decision. The durable run ledger is the local source of truth for this evidence.
+1. Fail over only to a pre-approved healthy target with compatible policy and current evidence.
+2. Escalate with evidence: objective, scope, plan/policy revisions, commands, outputs, errors, changed artifacts, hashes, verification results, and rollback state.
+3. Manual intervention is required for irreversible actions, ambiguous ownership, degraded audit health, unverified security changes, or recovery beyond approved runbooks.

@@ -15,6 +15,8 @@ import fs from 'node:fs/promises';
 import { constants as FSC } from 'node:fs';
 import path from 'node:path';
 import { homedir } from 'node:os';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { createHash } from 'node:crypto';
 
 const WORKSPACE = process.env.REMOTE_WORKSPACE || path.join(homedir(), '.remote-agent', 'workspace');
 const TRASH = process.env.REMOTE_TRASH || path.join(homedir(), '.remote-agent', 'trash');
@@ -25,17 +27,29 @@ const MAX_WRITE_BYTES = 1_000_000; // 1 MB
 // there, in which case the symlink check happens via lstat instead.
 const O_NOFOLLOW = FSC.O_NOFOLLOW || 0;
 
-// Per-agent allowed file roots — set by the daemon before each task from the
-// agent's capability profile (e.g. ~/Desktop, ~/Documents). The workspace
-// stays a root; extra roots only ADD places the files tool may touch.
-let AGENT_ROOTS = null;
-export function setAgentRoots(roots) {
-  AGENT_ROOTS = Array.isArray(roots) && roots.length
-    ? roots.map((p) => (String(p).startsWith('~/') ? path.join(homedir(), String(p).slice(2)) : String(p))).map((p) => path.resolve(p))
+// Per-agent allowed file roots. AsyncLocalStorage keeps concurrent requests
+// isolated while setAgentRoots() remains source-compatible with the daemon.
+const ROOT_CONTEXT = new AsyncLocalStorage();
+let LEGACY_ROOTS = null;
+function normalizeRoots(roots) {
+  return Array.isArray(roots) && roots.length
+    ? Object.freeze(roots.map((p) => (String(p).startsWith('~/') ? path.join(homedir(), String(p).slice(2)) : String(p))).map((p) => path.resolve(p)))
     : null;
 }
+export function setAgentRoots(roots) {
+  const normalized = normalizeRoots(roots);
+  const store = ROOT_CONTEXT.getStore();
+  if (store) store.roots = normalized;
+  else LEGACY_ROOTS = normalized;
+}
+export function runWithAgentRoots(roots, fn) {
+  if (typeof fn !== 'function') throw new TypeError('fn must be a function');
+  return ROOT_CONTEXT.run({ roots: normalizeRoots(roots) }, fn);
+}
 function activeRoots() {
-  return AGENT_ROOTS && AGENT_ROOTS.length ? AGENT_ROOTS : [path.resolve(WORKSPACE)];
+  const contextual = ROOT_CONTEXT.getStore();
+  const roots = contextual ? contextual.roots : LEGACY_ROOTS;
+  return roots && roots.length ? roots : [path.resolve(WORKSPACE)];
 }
 
 const root = () => activeRoots()[0];
@@ -113,14 +127,27 @@ async function openGuarded(fp, flags) {
 }
 
 async function ensureWorkspace() {
-  await fs.mkdir(WORKSPACE, { recursive: true });
+  await fs.mkdir(root(), { recursive: true });
+}
+
+async function sha256File(fp) {
+  const { fd, st } = await openGuarded(fp, FSC.O_RDONLY | O_NOFOLLOW);
+  try {
+    if (!st.isFile()) return '';
+    const data = await fd.readFile();
+    return createHash('sha256').update(data).digest('hex');
+  } finally { await fd.close(); }
+}
+
+function relativePath(fp) {
+  return path.relative(root(), fp).split(path.sep).join('/');
 }
 
 export const files = {
   name: 'files',
-  description: 'File system operations within the agent workspace (read, write, list, delete, stat)',
+  description: 'Secure workspace operations: read, write, tree, search, diff, rename, copy, trash/restore and metadata',
   args: {
-    action: 'string — read | write | list | delete | stat',
+    action: 'string — read | write | list | tree | search | diff | mkdir | rename | copy | delete | restore | stat',
     path:   'string — relative path within workspace',
     content:'string — file content (for write)',
     purge:  'bool — delete permanently instead of moving to trash',
@@ -138,8 +165,13 @@ export const files = {
         await guardSymlinks(fp);
         const { fd } = await openGuarded(fp, FSC.O_RDONLY | O_NOFOLLOW);
         try {
-          const content = await fd.readFile('utf8');
-          return { path: args.path, content: content.slice(0, MAX_READ_BYTES), truncated: content.length > MAX_READ_BYTES };
+          const raw = await fd.readFile();
+          const offset = Math.max(0, Number(args.offset) || 0);
+          const limit = Math.min(MAX_READ_BYTES, Math.max(1, Number(args.limit) || MAX_READ_BYTES));
+          const part = raw.subarray(offset, offset + limit);
+          const binary = args.encoding === 'base64' || raw.subarray(0, Math.min(raw.length, 8000)).includes(0);
+          const hash = createHash('sha256').update(raw).digest('hex');
+          return { path: args.path, content: binary ? part.toString('base64') : part.toString('utf8'), encoding: binary ? 'base64' : 'utf8', offset, bytes: part.length, size: raw.length, hash, etag: hash, truncated: offset + part.length < raw.length };
         } finally {
           await fd.close();
         }
@@ -148,24 +180,34 @@ export const files = {
       case 'write': {
         if (!args.path) return { error: 'path required' };
         if (args.content == null) return { error: 'content required' };
-        const bytes = Buffer.byteLength(String(args.content));
+        // Binary uploads arrive base64-encoded; text is UTF-8. The hash is
+        // computed over the decoded bytes so it matches a later read.
+        const isB64 = args.encoding === 'base64';
+        const buf = isB64 ? Buffer.from(String(args.content), 'base64') : Buffer.from(String(args.content), 'utf8');
+        const bytes = buf.length;
         if (bytes > MAX_WRITE_BYTES) {
           return { error: `File too large (max ${MAX_WRITE_BYTES} bytes)` };
         }
         const fp = safePath(args.path);
+        if (args.expectedHash) {
+          const exists = await fs.access(fp).then(() => true).catch(() => false);
+          const current = exists ? await sha256File(fp) : '';
+          if (String(args.expectedHash).toLowerCase() !== current) return { error: 'File changed since it was opened', code: 'hash_conflict', conflict: true, expectedHash: String(args.expectedHash), currentHash: current };
+        }
         await fs.mkdir(path.dirname(fp), { recursive: true });
         await guardSymlinks(fp);
         const { fd } = await openGuarded(fp, FSC.O_WRONLY | FSC.O_CREAT | FSC.O_TRUNC | O_NOFOLLOW);
         try {
-          await fd.writeFile(args.content, 'utf8');
-          return { ok: true, path: args.path, bytes };
+          await fd.writeFile(buf);
+          const hash = createHash('sha256').update(buf).digest('hex');
+          return { ok: true, path: args.path, bytes, size: bytes, hash, etag: hash };
         } finally {
           await fd.close();
         }
       }
 
       case 'list': {
-        const dir = args.path ? safePath(args.path) : WORKSPACE;
+        const dir = args.path ? safePath(args.path) : root();
         await guardSymlinks(dir);
         const st = await fs.stat(dir);
         if (!st.isDirectory()) return { error: `Not a directory: ${args.path}` };
@@ -174,6 +216,99 @@ export const files = {
           name: e.name,
           type: e.isDirectory() ? 'dir' : 'file',
         }));
+      }
+
+      case 'tree': {
+        const dir = args.path ? safePath(args.path) : root();
+        await guardSymlinks(dir);
+        const limit = Math.min(500, Math.max(1, Number(args.limit) || 200));
+        const cursor = Math.max(0, Number(args.cursor) || 0);
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        entries.sort((a, b) => (a.isDirectory() === b.isDirectory() ? a.name.localeCompare(b.name) : a.isDirectory() ? -1 : 1));
+        const page = entries.slice(cursor, cursor + limit);
+        const items = [];
+        for (const entry of page) {
+          if (entry.isSymbolicLink()) continue;
+          const fp = path.join(dir, entry.name);
+          const st = await fs.stat(fp);
+          items.push({ name: entry.name, path: relativePath(fp), type: entry.isDirectory() ? 'dir' : 'file', size: st.size, modified: st.mtime.toISOString() });
+        }
+        return { path: args.path || '', entries: items, cursor, nextCursor: cursor + page.length < entries.length ? cursor + page.length : null, total: entries.length };
+      }
+
+      case 'mkdir': {
+        if (!args.path) return { error: 'path required' };
+        const fp = safePath(args.path);
+        await guardSymlinks(path.dirname(fp));
+        await fs.mkdir(fp, { recursive: true });
+        return { ok: true, path: args.path, type: 'dir' };
+      }
+
+      case 'rename': {
+        if (!args.from || !args.to) return { error: 'from and to required' };
+        const from = safePath(args.from); const to = safePath(args.to);
+        await guardSymlinks(from); await guardSymlinks(path.dirname(to));
+        await fs.mkdir(path.dirname(to), { recursive: true });
+        await fs.rename(from, to);
+        return { ok: true, from: args.from, path: args.to };
+      }
+
+      case 'copy': {
+        if (!args.from || !args.to) return { error: 'from and to required' };
+        const from = safePath(args.from); const to = safePath(args.to);
+        await guardSymlinks(from); await guardSymlinks(path.dirname(to));
+        const st = await fs.lstat(from);
+        if (st.isSymbolicLink() || (!st.isFile() && !st.isDirectory())) return { error: 'Refusing to copy special file' };
+        await fs.mkdir(path.dirname(to), { recursive: true });
+        await fs.cp(from, to, { recursive: st.isDirectory(), errorOnExist: true, force: false });
+        return { ok: true, from: args.from, path: args.to };
+      }
+
+      case 'search': {
+        const start = args.path ? safePath(args.path) : root();
+        await guardSymlinks(start);
+        const needle = String(args.query || '').toLowerCase();
+        if (!needle) return { error: 'query required' };
+        const matches = []; const queue = [start]; let scanned = 0;
+        while (queue.length && scanned < 500 && matches.length < 100) {
+          const dir = queue.shift();
+          const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+          for (const entry of entries) {
+            if (entry.isSymbolicLink()) continue;
+            const fp = path.join(dir, entry.name); scanned++;
+            if (entry.isDirectory()) { if (queue.length < 200) queue.push(fp); continue; }
+            if (!entry.isFile()) continue;
+            if (entry.name.toLowerCase().includes(needle)) matches.push({ path: relativePath(fp), kind: 'name' });
+            if (matches.length >= 100) break;
+            const st = await fs.stat(fp);
+            if (st.size <= MAX_READ_BYTES) {
+              const text = await fs.readFile(fp, 'utf8').catch(() => '');
+              const index = text.toLowerCase().indexOf(needle);
+              if (index >= 0) matches.push({ path: relativePath(fp), kind: 'content', line: text.slice(0, index).split('\n').length, preview: text.slice(Math.max(0, index - 80), index + needle.length + 120) });
+            }
+          }
+        }
+        return { query: args.query, matches: matches.slice(0, 100), scanned, truncated: queue.length > 0 || matches.length >= 100 };
+      }
+
+      case 'diff': {
+        if (!args.path || args.content == null) return { error: 'path and content required' };
+        const fp = safePath(args.path); await guardSymlinks(fp);
+        const before = await fs.readFile(fp, 'utf8').catch(() => '');
+        const after = String(args.content);
+        return { path: args.path, changed: before !== after, beforeHash: createHash('sha256').update(before).digest('hex'), afterHash: createHash('sha256').update(after).digest('hex'), before: before.slice(0, MAX_READ_BYTES), after: after.slice(0, MAX_READ_BYTES), truncated: before.length > MAX_READ_BYTES || after.length > MAX_READ_BYTES };
+      }
+
+      case 'restore': {
+        if (!args.trashId || !args.path) return { error: 'trashId and path required' };
+        const id = path.basename(String(args.trashId));
+        if (id !== String(args.trashId)) return { error: 'invalid trashId' };
+        const source = path.join(TRASH, id); const target = safePath(args.path);
+        await guardSymlinks(path.dirname(target));
+        if (await fs.access(target).then(() => true).catch(() => false)) return { error: 'restore target already exists', code: 'hash_conflict', conflict: true };
+        await fs.mkdir(path.dirname(target), { recursive: true });
+        await fs.rename(source, target);
+        return { ok: true, trashId: id, path: args.path };
       }
 
       case 'delete': {
@@ -198,7 +333,7 @@ export const files = {
           dest = path.join(TRASH, `${Date.now()}-${n++}-${name}`);
         }
         await fs.rename(fp, dest);
-        return { ok: true, path: args.path, trashed: dest, note: 'Moved to trash — use purge:true to delete permanently' };
+        return { ok: true, path: args.path, trashed: dest, trashId: path.basename(dest), note: 'Moved to trash — use purge:true to delete permanently' };
       }
 
       case 'stat': {
@@ -212,11 +347,12 @@ export const files = {
           isDir:    st.isDirectory(),
           modified: st.mtime.toISOString(),
           created:  st.birthtime.toISOString(),
+          ...(st.isFile() ? { hash: await sha256File(fp), etag: await sha256File(fp) } : {}),
         };
       }
 
       default:
-        return { error: `Unknown file action: ${action}`, available: ['read', 'write', 'list', 'delete', 'stat'] };
+        return { error: `Unknown file action: ${action}`, available: ['read','write','list','tree','search','diff','mkdir','rename','copy','delete','restore','stat'] };
       }
     } catch (err) {
       return { error: err.message };

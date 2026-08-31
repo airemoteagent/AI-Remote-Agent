@@ -45,6 +45,11 @@ export const TYPES = Object.freeze({
   AGENT_LOG: 'agent.log',         // device  { level, message } (daemon diagnostics)
   /* telemetry (device ) */
   DEVICE_METRICS: 'device.metrics',
+  /* workspace/artifact stream (additive v1 capability) */
+  WORKSPACE_OPERATION: 'workspace.operation',
+  WORKSPACE_RESULT: 'workspace.result',
+  WORKSPACE_ARTIFACT: 'workspace.artifact',
+  WORKSPACE_PREVIEW: 'workspace.preview',
   /* liveness */
   PING: 'ping',
   PONG: 'pong',
@@ -59,6 +64,13 @@ export const TYPES = Object.freeze({
 /** Device capability shape announced in `hello`. The gateway turns this into agent_permissions. */
 export function capabilities({ tools = [], shell = null }) {
   return { tools: [...tools], shell: shell ? { ...shell } : null };
+}
+
+export function workspaceOperation({ opId, workspaceId, workspaceRevision = 0, operation, payload = {}, expectedHash = '' }) {
+  if (!opId || !workspaceId || !operation) throw new TypeError('workspace operation identity is required');
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(String(opId)) || !/^[a-zA-Z0-9_-]{1,128}$/.test(String(workspaceId))) throw new TypeError('invalid workspace operation identity');
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new TypeError('workspace payload must be an object');
+  return Object.freeze({ opId: String(opId), workspaceId: String(workspaceId), workspaceRevision: Math.max(0, Number(workspaceRevision) || 0), operation: String(operation), payload: { ...payload }, expectedHash: String(expectedHash || '') });
 }
 
 /** Build a versioned envelope. */

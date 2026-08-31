@@ -21,6 +21,7 @@
 export const CONTEXT_BUDGETS = {
   systemRules: 2500,
   env: 1500,
+  workspaceMap: 2000,
   persona: 800,
   policy: 1000,
   skills: 1500,
@@ -30,12 +31,15 @@ export const CONTEXT_BUDGETS = {
 };
 
 // Fixed first-fit order — most important first (spec M5, line 29).
-const BLOCK_ORDER = ['systemRules', 'env', 'persona', 'policy', 'skills', 'vector', 'sessions', 'memory'];
+// workspaceMap sits right after env: knowing the SHAPE of the workspace up
+// front is what stops the model from spending tokens rediscovering it.
+const BLOCK_ORDER = ['systemRules', 'env', 'workspaceMap', 'persona', 'policy', 'skills', 'vector', 'sessions', 'memory'];
 
 // Map each block name to its input key.
 const INPUT_KEYS = {
   systemRules: 'systemRules',
   env: 'envSnapshot',
+  workspaceMap: 'workspaceMap',
   persona: 'persona',
   policy: 'policySummary',
   skills: 'skills',
@@ -105,6 +109,10 @@ export function buildContext(inputs = {}) {
   const perBlock = {};
   const truncated = [];
   const parts = [];
+  // name -> index in `parts`. Empty blocks contribute no part, so this map is
+  // the only safe way to address a block later (a BLOCK_ORDER index would
+  // point at the wrong part as soon as one block is empty).
+  const partIndex = new Map();
   let total = 0;
 
   for (const name of BLOCK_ORDER) {
@@ -121,6 +129,7 @@ export function buildContext(inputs = {}) {
     }
     perBlock[name] = block.length;
     total += block.length;
+    partIndex.set(name, parts.length);
     parts.push(block);
   }
 
@@ -130,13 +139,13 @@ export function buildContext(inputs = {}) {
   // keeps the invariant if a future budget change breaks the sum.
   for (const name of BACK_CUT_ORDER) {
     if (total <= TOTAL_BUDGET) break;
-    const idx = BLOCK_ORDER.indexOf(name);
+    const idx = partIndex.get(name);
     const currentLen = perBlock[name];
-    if (currentLen === 0) continue;
+    if (idx === undefined || currentLen === 0) continue;
     const excess = total - TOTAL_BUDGET;
     if (currentLen <= excess) {
-      // Drop the whole block.
-      parts.splice(idx, 1);
+      // Drop the block's content (the slot stays so later indices stay valid).
+      parts[idx] = '';
       perBlock[name] = 0;
       total -= currentLen;
     } else {

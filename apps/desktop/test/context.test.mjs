@@ -10,11 +10,14 @@ import { CONTEXT_BUDGETS, buildContext, summarizeBudget } from '../src/context.j
 const TOTAL_BUDGET = Object.values(CONTEXT_BUDGETS).reduce((a, b) => a + b, 0);
 
 // Fixed first-fit order from the spec (most important first).
-const PRIORITY_ORDER = ['systemRules', 'env', 'persona', 'policy', 'skills', 'vector', 'sessions', 'memory'];
+// workspaceMap is the locally-built structure digest: it sits directly after
+// env so the model is oriented before it spends tokens exploring.
+const PRIORITY_ORDER = ['systemRules', 'env', 'workspaceMap', 'persona', 'policy', 'skills', 'vector', 'sessions', 'memory'];
 
 const INPUT_KEYS = {
   systemRules: 'systemRules',
   env: 'envSnapshot',
+  workspaceMap: 'workspaceMap',
   persona: 'persona',
   policy: 'policySummary',
   skills: 'skills',
@@ -36,7 +39,7 @@ function allInputs(makeBlock) {
 }
 
 describe('buildContext budget', () => {
-  test('all eight blocks fit under the total budget, untruncated, in priority order', () => {
+  test('all nine blocks fit under the total budget, untruncated, in priority order', () => {
     const inputs = allInputs((name) => untrustedBlock(name, `content ${name} `.repeat(20)));
     const { prompt, budgetLog } = buildContext(inputs);
 
@@ -65,6 +68,7 @@ describe('buildContext budget', () => {
     const inputs = {
       systemRules: sysRules,
       envSnapshot: untrustedBlock('env', 'E'.repeat(100)),
+      workspaceMap: untrustedBlock('workspaceMap', 'W'.repeat(100)),
       persona: untrustedBlock('persona', 'P'.repeat(100)),
       policySummary: untrustedBlock('policy', 'POL'.repeat(100)),
       skills: untrustedBlock('skills', 'S'.repeat(100)),
@@ -113,6 +117,27 @@ describe('buildContext budget', () => {
     assert.ok(prompt.startsWith(big.slice(0, 50)), 'keeps the head of the rules');
   });
 
+  test('back-cut drops the right block when earlier blocks are empty', () => {
+    // Regression: the back-cut used to address `parts` by BLOCK_ORDER index,
+    // which points at the WRONG block as soon as any earlier block is empty —
+    // it could delete a high-priority block instead of the low-priority one.
+    const inputs = {
+      // systemRules, env, workspaceMap, persona, policy, skills all empty
+      vectorContext: untrustedBlock('vector', 'V'.repeat(CONTEXT_BUDGETS.vector * 2)),
+      sessionContext: untrustedBlock('sessions', 'SE'.repeat(CONTEXT_BUDGETS.sessions)),
+      memoryContext: untrustedBlock('memory', 'M'.repeat(CONTEXT_BUDGETS.memory * 2)),
+    };
+    const { prompt, budgetLog } = buildContext(inputs);
+    assert.ok(budgetLog.totalChars <= TOTAL_BUDGET);
+    for (const name of ['vector', 'sessions', 'memory']) {
+      assert.ok(prompt.includes(`<untrusted-${name}>`), `${name} block must survive the back-cut`);
+      assert.ok(budgetLog.perBlock[name] <= CONTEXT_BUDGETS[name]);
+    }
+    // Order is preserved: vector before sessions before memory.
+    assert.ok(prompt.indexOf('<untrusted-vector>') < prompt.indexOf('<untrusted-sessions>'));
+    assert.ok(prompt.indexOf('<untrusted-sessions>') < prompt.indexOf('<untrusted-memory>'));
+  });
+
   test('empty and missing inputs never crash and produce an empty prompt', () => {
     const empty = buildContext({});
     assert.equal(empty.prompt, '');
@@ -137,6 +162,7 @@ describe('budgetLog + summarizeBudget', () => {
     const inputs = {
       systemRules: 'rule one\nrule two',
       envSnapshot: untrustedBlock('env', 'E1'),
+      workspaceMap: untrustedBlock('workspaceMap', 'W1'),
       persona: untrustedBlock('persona', 'P1'),
       policySummary: untrustedBlock('policy', 'POL1'),
       skills: untrustedBlock('skills', 'S1'),

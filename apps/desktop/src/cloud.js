@@ -57,10 +57,10 @@ function b64Body(obj) {
 // onUsage(usage) — called with final token counts (if provided)
 // Returns { text, usage, model, provider } — usage is null when the
 // cloud did not report it (older server or plain JSON without usage).
-export async function think({ apiKey, messages, tools, onChunk, onUsage, signal, temperature, profile }) {
+export async function think({ apiKey, messages, tools, onChunk, onUsage, signal, temperature, profile, workspaceId, workspaceManifest }) {
   const res = await apiFetch(P.think, {
     apiKey,
-    body: b64Body({ messages, tools, stream: true, temperature, profile }),
+    body: b64Body({ messages, tools, stream: true, temperature, profile, workspace_id: workspaceId || '', workspace_manifest: workspaceManifest || null }),
     signal,
   });
 
@@ -141,6 +141,29 @@ export async function pollTasks(apiKey) {
 
 export async function claimTask(apiKey, id) {
   return apiFetch('/api/v1/agent/tasks/claim', { apiKey, body: { id } });
+}
+
+export async function pollWorkspaceOps(apiKey) {
+  const res = await apiFetch('/api/v1/agent/workspace-ops', { apiKey, method: 'GET' });
+  return res.json();
+}
+
+export async function claimWorkspaceOp(apiKey, opId) {
+  const res = await apiFetch('/api/v1/agent/workspace-ops/claim', { apiKey, body: { opId } });
+  return res.json();
+}
+
+export async function workspaceOpResult(apiKey, opId, payload) {
+  const res = await apiFetch(`/api/v1/agent/workspace-ops/${encodeURIComponent(opId)}/result`, { apiKey, body: b64Body(payload) });
+  return res.json();
+}
+
+// Report local workspace roots to the cloud and receive the authoritative
+// bindings back. The device only ever sends a canonical workspace_id + a
+// local_identity_hash anchor — never an absolute host path.
+export async function syncWorkspaces(apiKey, workspaces) {
+  const res = await apiFetch('/api/v1/agent/workspaces/sync', { apiKey, body: { workspaces } });
+  return res.json();
 }
 
 export async function taskResult(apiKey, id, { result, steps }) {
