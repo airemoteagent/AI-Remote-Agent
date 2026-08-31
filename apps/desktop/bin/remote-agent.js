@@ -1240,7 +1240,7 @@ async function workspaceCmd() {
   console.log('  ' + CYAN + 'init' + RESET + ' [name]        Create a new, seeded workspace folder on this device');
   console.log('  ' + CYAN + 'link' + RESET + ' <dir> [name]  Use an EXISTING local folder as a workspace');
   console.log('  ' + CYAN + 'unlink' + RESET + ' <id>        Remove a link ' + DIM + '(never deletes files)' + RESET);
-  console.log('  ' + CYAN + 'map' + RESET + ' [id]           Show the local structure digest the agent uses ' + DIM + '(0 tokens)' + RESET);
+  console.log('  ' + CYAN + 'map' + RESET + ' [id]           List the workspace files the device reports ' + DIM + '(facts only)' + RESET);
   console.log('  ' + CYAN + 'list' + RESET + '               List local workspaces');
   console.log('  ' + CYAN + 'status' + RESET + '             Show workspace state');
   console.log();

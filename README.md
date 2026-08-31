@@ -201,6 +201,24 @@ symlink-resolution guards and TOCTOU re-validation after open. Deletes go
 to the trash, not to oblivion. A 1 MB write cap keeps runaway output in
 check.
 
+Workspaces are where the agent works, and they can be either a managed
+folder on the device or a **link to a real local directory** (your actual
+project checkout):
+
+```bash
+remote-agent setup                     # login + create/link a workspace + start
+remote-agent workspace init "My App"   # create a new, seeded workspace
+remote-agent workspace link ~/Projects/my-app  # use an existing folder
+remote-agent workspace list            # show local workspaces (managed + linked)
+remote-agent workspace status          # show workspace state
+remote-agent workspace map             # list the files this device reports
+remote-agent workspace unlink <id>     # remove a link (never deletes files)
+```
+
+The device reports **file facts only** — relative path, size and mtime —
+so the cloud can orient a run without the device sending file contents.
+Your files stay on the device; the cloud never receives their bodies.
+
 ### Network and research
 
 SSRF-safe by construction: the agent resolves DNS itself, CIDR-checks
@@ -502,8 +520,10 @@ untouched.
 **How do I uninstall?** `rm -rf ~/.remote-agent ~/.local/bin/remote-agent`.
 
 **What does it send to the cloud?** Only to the cloud you logged into:
-device metrics, tool results, and your chat messages. Nothing to third
-parties. Details in [SECURITY.md](SECURITY.md).
+device metrics, tool results, your chat messages, and — for a workspace
+task — the workspace's file manifest (relative paths, sizes, mtimes).
+File **contents** are never uploaded. Nothing to third parties. Details in
+[SECURITY.md](SECURITY.md).
 
 **Can the agent damage my machine?** The sandbox is layered and the
 policy engine is first-match-wins; start from `remote-agent policy preset
