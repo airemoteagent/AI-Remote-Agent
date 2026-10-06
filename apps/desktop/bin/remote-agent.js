@@ -415,10 +415,40 @@ async function auditCmd() {
     if (v.ok) {
       console.log(`\n  ${GREEN}Audit chain OK${RESET} — ${v.checked} entries verified, no tampering detected.\n`);
     } else {
-      console.log(`\n  ${RED}Audit chain BROKEN${RESET} at entry ${v.brokenAt} (${v.reason || 'hash mismatch'}).\n`);
+      // brokenAt is the SEQ stamped in the record, which is not the line number once a
+      // chain has forked. Saying "entry 901" for a break that is physically on line 902
+      // sends whoever investigates to the wrong line, so name both.
+      console.log(`\n  ${RED}Audit chain BROKEN${RESET} at record seq ${v.brokenAt} (${v.reason || 'hash mismatch'}).`);
+      console.log(`  ${DIM}Run ${CYAN}remote-agent audit explain${DIM} for the exact line and what the break is.${RESET}\n`);
       process.exit(1);
     }
     return;
+  }
+
+  if (sub === 'explain') {
+    // Not a repair and not a rewrite: this only says WHAT broke, so a person can decide.
+    const { explainChain } = await import('../src/audit-explain.js');
+    if (!existsSync(auditPath)) {
+      console.log(`\n  ${YELLOW}No audit log yet: ${auditPath}${RESET}\n`);
+      return;
+    }
+    const report = explainChain(readFileSync(auditPath, 'utf8'));
+    console.log(`\n  ${BOLD}remote-agent audit explain${RESET} ${DIM}(${auditPath})${RESET}\n`);
+    if (!report.broken) {
+      console.log(`  ${GREEN}intact${RESET} — ${report.entries} entries, nothing to explain.\n`);
+      return;
+    }
+    console.log(`  entries        : ${report.entries}`);
+    console.log(`  first break    : line ${report.firstBadIndex}${report.firstBadSeq != null ? ` (seq stamped ${report.firstBadSeq})` : ''}`);
+    console.log(`  verdict        : ${RED}${report.verdict}${RESET}${report.subCause ? ` — ${report.subCause}` : ''}`);
+    const ev = report.evidence || {};
+    if (ev.expectedPrev) console.log(`  prev expected  : ${String(ev.expectedPrev).slice(0, 24)}…`);
+    if (ev.actualPrev) console.log(`  prev actual    : ${String(ev.actualPrev).slice(0, 24)}…`);
+    if (ev.storedHash) console.log(`  hash stored    : ${String(ev.storedHash).slice(0, 24)}… (recomputed ${String(ev.recomputedHash).slice(0, 24)}…)`);
+    console.log(`  breaks total   : ${report.breaks?.length ?? 1}`);
+    console.log(`  tail           : ${report.tailSelfConsistent ? 'self-consistent from the break on' : 'NOT self-consistent from the break on'}`);
+    console.log(`\n  ${DIM}This log is append-only by design. Nothing was changed; a repair means re-sealing\n  every downstream record, which is the rewrite this product refuses to do silently.${RESET}\n`);
+    process.exit(1);
   }
 
   console.error(`\n  Unknown audit subcommand: ${sub}\n  Run ${CYAN}remote-agent audit help${RESET}\n`);

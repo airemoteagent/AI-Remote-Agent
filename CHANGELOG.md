@@ -4,6 +4,35 @@ All notable changes to remote-agent are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.1.0] - 2026-10-06 — Control your agents and devices from the website
+
+The console on **remoteagent.online/console** is a view inside the site's own shell and a
+real control surface: a signed-in user controls their own agents and devices from the
+browser, without opening a port on the machine.
+
+### Added
+- **Device command channel.** Control actions are queued in the cloud
+  (`mona_device_commands`) and executed by the device's own daemon, which polls
+  `GET /api/v1/agent/commands` over HTTPS and reports the outcome with
+  `POST /api/v1/agent/commands/{id}/result`. This is the path that works behind NAT and
+  on a control plane without a WebSocket relay; commands expire after 10 minutes and are
+  never reported as done.
+- **Control from the console**: run/stop an agent, device actions, focus mode, guard
+  gates, pause/resume/renice/kill a process, the security kill switches, a dry-run tool,
+  and settings that live on the device.
+- **Refusals are refusals.** Every command is policy-checked on the device with its own
+  rules and written to its hash-chained audit log; a command the device refuses comes back
+  `refused` with the device's own reason, and the console shows that instead of a success.
+- The device publishes its tool registry (name, description, policy tier) in the console
+  frame, so the playground renders the real registry instead of an empty list.
+- `remote-agent audit explain` — names the exact line and cause of a broken hash chain and
+  distinguishes a truncated tail, a rewritten entry, and a concurrent-writer fork.
+
+### Changed
+- `remote-agent audit verify` now says "record seq N" instead of "entry N": once a chain
+  has forked, the sequence number stamped in a record is not its line number, and naming
+  only one of the two sends an investigation to the wrong line.
+
 ## [4.0.1] - 2026-08-26 — Stop/Cancel control
 
 - Dashboard **Send** button now toggles to **Stop** while a task is running; cancelling marks the run/task `cancelled` end-to-end.

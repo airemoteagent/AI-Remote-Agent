@@ -98,9 +98,20 @@ export function consoleFrame() {
   }
   const memTotal = d.memTotalMB || 0;
   const memFree = d.memFreeMB || 0;
+  // The tool registry is read on this machine, so the hosted console can only show it
+  // if the frame carries it. Names, one-line descriptions and the policy tier — the
+  // same three fields the playground panel renders; a registry this process cannot
+  // read stays an empty list, which the console states instead of faking.
+  const tools = (() => {
+    try {
+      return toolRegistry.list().map((t) => ({
+        name: t.name, description: String(t.description || '').slice(0, 140), tier: policyTierOf(t.name),
+      }));
+    } catch { return []; }
+  })();
   return {
     at: s.at, host: d.id || d.host, model: d.model, cores: d.cores,
-    totalMb: memTotal, busy: s.busy, load: s.load,
+    totalMb: memTotal, busy: s.busy, load: s.load, tools,
     mem: { available: memFree, used: Math.max(0, memTotal - memFree), total: memTotal },
     tempSeries: [], budget: s.budget, groups: s.groups, procs: s.procs, agents: s.agents,
     paused: s.paused, activity: s.activity, gates: s.gate, gate: s.gate,

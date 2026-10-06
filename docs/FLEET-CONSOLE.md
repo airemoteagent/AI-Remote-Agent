@@ -127,6 +127,40 @@ Protected always: pid 1, this process, control-surface port owners, core GUI
 daemons. Binds **127.0.0.1 only**. Every action is audited to
 `~/.remote-agent/focus-audit.jsonl`.
 
+## Control from the website (no open port, no relay)
+
+The same controls are reachable from **remoteagent.online/console** on a control plane
+that has no WebSocket relay and a device behind NAT. The direction is inverted: the
+cloud queues, the device pulls.
+
+| step | who | what |
+|---|---|---|
+| 1 | website | `POST /console/api/<action>` writes a row into `mona_device_commands` (`pending`) |
+| 2 | device | `GET /api/v1/agent/commands` (Bearer token, every 2 s) claims it atomically |
+| 3 | device | `runDeviceCommand()` policy-checks it with its **own** policy (`fleet` tier) and runs it with the same functions the local dashboard uses |
+| 4 | device | `POST /api/v1/agent/commands/{id}/result` reports `done` / `failed` / `refused` |
+| 5 | website | polls `GET /console/api/commands?ids=…` until the status is terminal and shows the device's own outcome |
+
+Rules that make it safe to expose:
+
+- **The device decides.** A command the device refuses is reported `refused` with the
+  policy reason and rendered as a refusal. The cloud cannot widen what the machine allows,
+  cannot skip the audit log, and cannot make an action look done before the device says so.
+- **Observer mode is one setting away.** Policy tier `strict` sets `fleet: deny`; remote
+  control then answers `refused` with `policy (deny): …` while the roster stays readable.
+- **Rate limited on the device**, not only in the cloud: the `fleet` budget
+  (`rateLimits.fleet.perMinute`, 30 in the standard preset) is enforced by a policy
+  instance held across polls, plus a rolling hard cap the cloud cannot raise.
+- **Bounded inputs.** pids must be integers > 1 and are never pid 1 or the daemon; kill
+  signals are from a fixed list; payload fields are reduced to typed scalars by the web
+  API before they are queued.
+- Commands **expire after 10 minutes**; an unclaimed or abandoned command is `expired`,
+  never `done`.
+
+`remote-agent audit explain` names the exact line and cause when a hash-chained log stops
+verifying, and distinguishes a truncated tail, a rewritten entry and a concurrent-writer
+fork — the three things that actually happen.
+
 ## Live wiring (this machine)
 
 `http://127.0.0.1:3099/` (the dashboard Mona uses, `~/.dsh/bin/deepdive.mjs`) is a

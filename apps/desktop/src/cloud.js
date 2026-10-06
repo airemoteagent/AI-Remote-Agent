@@ -170,6 +170,32 @@ export async function taskResult(apiKey, id, { result, steps }) {
   return apiFetch(`/api/v1/agent/tasks/${id}/result`, { apiKey, body: b64Body({ result, steps }) });
 }
 
+// ── Device command queue (console control — the device polls for commands) ──
+// The console queues a control command; this device picks it up on the existing
+// task cadence, executes it under its OWN policy and reports the outcome back.
+// The wire contract caps a result at 8 KB, so a bigger one is sent truncated and
+// marked as such rather than rejected server-side and left non-terminal forever.
+export async function pollCommands(apiKey) {
+  const res = await apiFetch('/api/v1/agent/commands', { apiKey, method: 'GET' });
+  const data = await res.json();
+  return data || { commands: [] };
+}
+
+export async function reportCommand(apiKey, id, { status, result } = {}) {
+  return apiFetch(`/api/v1/agent/commands/${encodeURIComponent(id)}/result`, {
+    apiKey,
+    body: { status, result: clampResult(result) },
+  });
+}
+
+const MAX_RESULT_CHARS = 8000;
+
+function clampResult(result) {
+  let json;
+  try { json = JSON.stringify(result ?? null); } catch { return { truncated: true, error: 'result not JSON-serializable' }; }
+  return json.length > MAX_RESULT_CHARS ? { truncated: true, json: json.slice(0, MAX_RESULT_CHARS) } : result;
+}
+
 export async function postActivity(apiKey, type, detail, runId, agentId) {
   return apiFetch('/api/v1/agent/activity', { apiKey, body: b64Body({ type, detail, runId, agentId }) });
 }

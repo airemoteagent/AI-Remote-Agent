@@ -14,6 +14,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { think, pollTasks, claimTask, taskResult, postActivity, runStart, runStep, runFinish, pollWorkspaceOps, claimWorkspaceOp, workspaceOpResult, syncWorkspaces } from './cloud.js';
+import { pollDeviceCommands } from './device-commands.js';
 import { loadProviderConfig, localThink, transportMode, requireLocalProvider } from './transport/local.js';
 import { ControlChannel } from './control.js';
 import { tools } from './tools/index.js';
@@ -480,6 +481,13 @@ export class AgentDaemon extends EventEmitter {
         await workspaceOpResult(this.#creds.apiKey, op.op_id, outcome).catch((error) => log.debug(`Workspace result report failed: ${error.message}`));
         auditWrite({ kind: 'workspace.operation', opId: op.op_id, workspaceId: op.workspace_id, operation: op.op_type, status: outcome.status });
       }
+
+      // Device control from the hosted console rides the same cadence, but is NOT
+      // awaited: a slow executor must never stall task claiming. pollDeviceCommands
+      // guards its own in-flight state and reports refused/failed itself, so this
+      // detached call can only ever be a log line.
+      pollDeviceCommands({ apiKey: this.#creds.apiKey, log })
+        .catch((error) => log.debug(`Command poll failed: ${error?.message ?? error}`));
     } catch (err) {
       log.debug(`Task poll failed: ${err.message}`);
     } finally {
