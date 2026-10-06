@@ -35,8 +35,24 @@ export function loadPaused() {
 const savePaused = (m) => { try { mkdirSync(DIR, { recursive: true }); writeFileSync(PAUSE_FILE, JSON.stringify(Object.fromEntries(m))); } catch { /* disk */ } };
 export const paused = loadPaused();
 
-export function readProcs() {
-  return parsePsOutput(execFileSync('ps', ['-Ao', 'pid=,ppid=,user=,nice=,state=,time=,rss=,args='], { encoding: 'utf8', maxBuffer: 32 * 1048576 }));
+// One `ps` per SCAN_MS, shared by every caller. Measured on a loaded box: a single
+// `ps -Ao` took 4.3 s, and the census + agent detection each paid it every tick —
+// 8-13 s of blocked event loop per 2 s tick, which wedged the control plane.
+// The process table changes on the order of a second, so a short cache costs nothing
+// and turns the tick back into milliseconds.
+const SCAN_MS = Number(process.env.SAMPLER_SCAN_MS ?? 2000);
+let scanCache = { at: 0, rows: null };
+export function readProcs({ force = false } = {}) {
+  if (!force && scanCache.rows && Date.now() - scanCache.at < SCAN_MS) return scanCache.rows;
+  const t0 = Date.now();
+  const rows = parsePsOutput(execFileSync('ps', ['-Ao', 'pid=,ppid=,user=,nice=,state=,time=,rss=,args='], { encoding: 'utf8', maxBuffer: 32 * 1048576 }));
+  scanCache = { at: Date.now(), rows, ms: Date.now() - t0 };
+  return rows;
+}
+
+/** How long the last process scan took — reported, not hidden. */
+export function scanState() {
+  return { at: scanCache.at, rows: scanCache.rows?.length ?? 0, ms: scanCache.ms ?? null, cacheMs: SCAN_MS };
 }
 export function portOwners(ports = PORT_KEYS) {
   const s = new Set();

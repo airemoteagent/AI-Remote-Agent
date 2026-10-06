@@ -16,12 +16,14 @@
 // Fleet roster file (optional): ~/.remote-agent/fleet.json
 //   { "devices": [ { "id":"pi-1", "host":"pi-1.lan", "platform":"linux", "cores":4 } ] }
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as sampler from './device-sampler.js';
-import { catalog, listAgents, startAgent, stopAgent, probeDevices, deviceAction } from './agent-catalog.js';
+import { Policy, auditWrite } from '@remote-agent/engine';
+import { tools as toolRegistry } from './tools/index.js';
+import { catalog, listAgents, startAgent, stopAgent, probeDevices, deviceAction, refreshRuntimes, gate as policyGatePublic, explain as policyExplain, tierOf as policyTierOf } from './agent-catalog.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.FLEET_PORT || 3095);
@@ -55,7 +57,7 @@ export function snapshot() {
     at: Date.now(), console: 'fleet', port: PORT,
     device: self, devices: cat.devices, head: cat.head, counts: cat.counts, catalog: cat.agents,
     policy: cat.policy, audit: cat.audit, models: cat.models, modelsError: cat.modelsError,
-    activity: cat.activity ?? [],
+    activity: cat.activity ?? [], runtime: cat.runtime ?? null,
     busy: c.busy, budget: c.budget, groups: c.groups,
     agents, procs: c.rows.slice(0, 250),
     load: sampler.readLoad(), swap: sampler.readSwap(),
@@ -68,6 +70,149 @@ const json = (res, code, o) => { res.writeHead(code, { 'content-type': 'applicat
 const body = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => { b += c; if (b.length > 1e6) req.destroy(); }); req.on('end', () => { try { r(b ? JSON.parse(b) : {}); } catch { r({}); } }); });
 const clients = new Set();
 let last = null;
+
+// ── settings ────────────────────────────────────────────────────────────────
+// Knobs a human turns. Anything that changes what the device is ALLOWED to do goes
+// through the policy file and the audit chain; the rest is plain preferences.
+const SETTINGS_FILE = join(HOME, 'fleet-settings.json');
+const DEFAULTS = Object.freeze({
+  runtimeRefreshMs: Number(process.env.RUNTIME_REFRESH_MS ?? 30000),
+  scanCacheMs: Number(process.env.SAMPLER_SCAN_MS ?? 2000),
+  tickFloorMs: 2000,
+  tickCeilMs: 15000,
+  policyTier: 'strict', // capability dial: strict | standard | permissive
+});
+
+export function loadSettings() {
+  try { return { ...DEFAULTS, ...JSON.parse(readFileSync(SETTINGS_FILE, 'utf8')) }; }
+  catch { return { ...DEFAULTS }; }
+}
+function saveSettings(patch) {
+  const next = { ...loadSettings(), ...patch };
+  try { writeFileSync(SETTINGS_FILE, JSON.stringify(next, null, 2)); } catch { /* disk */ }
+  return next;
+}
+
+export function settingsView() {
+  const s = loadSettings();
+  const snap = last ?? snapshot();
+  return {
+    settings: s, defaults: DEFAULTS,
+    effective: {
+      fleetPort: PORT, runtimeRefreshMs: Number(process.env.RUNTIME_REFRESH_MS ?? s.runtimeRefreshMs),
+      snapshotMs: snap.snapshotMs ?? null, tickMs: snap.tickMs ?? null, scanned: snap.counts?.scanned ?? null,
+    },
+    policy: snap.policy, audit: snap.audit, head: snap.head,
+    paths: { settings: SETTINGS_FILE, registry: join(HOME, 'agents.json'), audit: snap.policy?.auditPath ?? null, home: HOME },
+    safety: { bindsLoopback: true, note: 'this console binds 127.0.0.1 only; policy is read from local disk and never from the network' },
+  };
+}
+
+export function applySettings(patch = {}) {
+  const gate = policyGatePublic('settings', JSON.stringify(patch).slice(0, 120));
+  if (!gate.ok) return { ok: false, denied: true, message: `policy (${gate.tier}): ${gate.reason}` };
+  const out = { ok: true, applied: [], refused: [] };
+
+  if (patch.runtimeRefreshMs != null) {
+    const ms = Math.max(5000, Math.min(600000, Number(patch.runtimeRefreshMs) || DEFAULTS.runtimeRefreshMs));
+    saveSettings({ runtimeRefreshMs: ms }); out.applied.push(`runtime refresh: ${ms} ms`);
+  }
+  if (patch.scanCacheMs != null) {
+    const ms = Math.max(500, Math.min(30000, Number(patch.scanCacheMs) || DEFAULTS.scanCacheMs));
+    saveSettings({ scanCacheMs: ms }); out.applied.push(`process scan cache: ${ms} ms (applies on restart)`);
+  }
+  if (patch.guards && typeof patch.guards === 'object') {
+    out.applied.push(`guards: ${JSON.stringify(sampler.setGate(patch.guards))}`);
+  }
+  if (patch.policyTier) {
+    const tier = String(patch.policyTier);
+    const r = setPolicyTier(tier);
+    if (r.ok) out.applied.push(`policy tier: ${tier}`); else out.refused.push(r.message);
+  }
+  if (!out.applied.length && !out.refused.length) out.refused.push('nothing to change');
+  return { ...out, settings: loadSettings() };
+}
+
+/** The capability dial writes the LOCAL policy file — the only authority there is. */
+function setPolicyTier(tier) {
+  try {
+    const policy = Policy.preset(tier); // throws on an unknown preset
+    writeFileSync(sampler.policyPath?.() ?? join(HOME, 'policy.json'), JSON.stringify(policy.raw, null, 2));
+    auditWrite({ kind: 'settings', action: 'policy-tier', tier, verdict: 'allow' }, last?.policy?.auditPath ?? undefined);
+    return { ok: true, tier };
+  } catch (e) { return { ok: false, message: `cannot set tier "${tier}": ${String(e?.message ?? e)}` }; }
+}
+
+// ── security ────────────────────────────────────────────────────────────────
+export function securityView() {
+  const snap = last ?? snapshot();
+  const denies = (snap.activity ?? []).filter((a) => a.verdict === 'deny' || a.verdict === 'refused' || a.verdict === 'confirm');
+  const pausedList = snap.paused ?? [];
+  return {
+    policy: snap.policy, audit: snap.audit, head: snap.head,
+    tier: snap.policy?.fleetTier ?? 'unknown',
+    denied: denies.slice(0, 25),
+    deniedCount: denies.length,
+    paused: pausedList,
+    gates: snap.gate,
+    protected: {
+      neverStop: ['launchd', 'WindowServer', 'loginwindow', 'Dock', 'Finder', 'SIP-protected daemons'],
+      controlSurfaces: [PORT, 3099, Number(process.env.CTL_PORT ?? 3098)],
+      rule: 'pid 1, this process, control-surface owners and core GUI daemons are never paused or killed',
+    },
+    containment: {
+      binds: '127.0.0.1 only', egress: 'the device talks out; nothing listens for the network',
+      policySource: 'local disk only — a remote policy update is rejected',
+      auditChain: snap.audit?.ok === true ? `verified (${snap.audit.checked} entries)` : `BROKEN at ${snap.audit?.brokenAt ?? '?'} — ${snap.audit?.reason ?? 'unknown'}`,
+    },
+    recent: (snap.activity ?? []).slice(0, 20),
+  };
+}
+
+export function securityAction(action) {
+  const gate = policyGatePublic(action, 'security');
+  if (!gate.ok) return { ok: false, denied: true, message: `policy (${gate.tier}): ${gate.reason}` };
+  const snap = last ?? snapshot();
+  switch (action) {
+    case 'pause-all-agents': {
+      const pids = (snap.agents ?? []).map((a) => a.pid);
+      const r = sampler.pausePids(pids);
+      return { ok: true, message: `paused ${r.paused?.length ?? 0} agent process(es)`, ...r };
+    }
+    case 'resume-all': { const r = sampler.resumeAll(); return { ok: true, message: `resumed ${r.resumed?.length ?? 0}`, ...r }; }
+    case 'disarm-guards': return { ok: true, message: 'guards disarmed', gate: sampler.setGate({ cpuGuard: false, priority: false }) };
+    case 'arm-guards': return { ok: true, message: 'guards armed', gate: sampler.setGate({ cpuGuard: true, priority: true }) };
+    default: return { ok: false, message: `unknown action ${action}` };
+  }
+}
+
+// ── playground ──────────────────────────────────────────────────────────────
+// Experiments stay experiments: every attempt is policy-checked and the verdict is
+// shown next to the result, so "it ran" and "policy allowed it" are never confused.
+export function playgroundView() {
+  const snap = last ?? snapshot();
+  return {
+    tools: (() => { try { return toolRegistry.list().map((t) => ({ ...t, tier: policyTierOf(t.name) })); } catch { return []; } })(),
+    policy: snap.policy,
+    note: 'dry-run asks the policy without running anything; run executes through the same registry the agent uses',
+  };
+}
+
+export async function playgroundRun({ tool, args = {}, dryRun = true } = {}) {
+  if (!tool) return { ok: false, message: 'need tool' };
+  let parsed = args;
+  if (typeof args === 'string') { try { parsed = args.trim() ? JSON.parse(args) : {}; } catch (e) { return { ok: false, message: `args must be JSON: ${String(e.message)}` }; } }
+  const verdict = policyExplain(tool, parsed);
+  if (dryRun) return { ok: true, dryRun: true, verdict, message: verdict.allowed ? 'policy would allow this' : `policy refuses: ${verdict.reason}` };
+  if (!verdict.allowed) return { ok: false, denied: true, verdict, message: `policy (${verdict.tier}): ${verdict.reason}` };
+  const gate = policyGatePublic(tool, JSON.stringify(parsed).slice(0, 120));
+  if (!gate.ok) return { ok: false, denied: true, message: `policy (${gate.tier}): ${gate.reason}` };
+  const t0 = Date.now();
+  try {
+    const result = await toolRegistry.run(tool, parsed);
+    return { ok: !result?.error, verdict, ms: Date.now() - t0, result: JSON.parse(JSON.stringify(result ?? null)) };
+  } catch (e) { return { ok: false, verdict, ms: Date.now() - t0, message: String(e?.message ?? e) }; }
+}
 
 export function createFleetServer() {
   return createServer(async (req, res) => {
@@ -87,6 +232,18 @@ export function createFleetServer() {
       if (url === '/resume' && req.method === 'POST') { const b = await body(req); return json(res, 200, b.pid ? sampler.resumePids([b.pid]) : sampler.resumeAll()); }
       if (url === '/renice' && req.method === 'POST') { const b = await body(req); return json(res, 200, b.pid ? sampler.renicePid(b.pid, b.nice ?? 20) : { ok: false, message: 'need pid' }); }
       if (url === '/kill' && req.method === 'POST') { const b = await body(req); return json(res, 200, b.pid ? sampler.killPid(b.pid, b.signal || 'SIGTERM') : { ok: false, message: 'need pid' }); }
+
+      // ── settings: the knobs a human turns, and what they actually do ──────
+      if (url === '/settings' && req.method === 'GET') return json(res, 200, settingsView());
+      if (url === '/settings' && req.method === 'POST') { const b = await body(req); return json(res, 200, applySettings(b)); }
+
+      // ── security: what is enforced, what was refused, and the kill switches ─
+      if (url === '/security') return json(res, 200, securityView());
+      if (url === '/security/action' && req.method === 'POST') { const b = await body(req); return json(res, 200, securityAction(String(b.action || ''))); }
+
+      // ── playground: try a tool without handing it the machine ─────────────
+      if (url === '/playground' && req.method === 'GET') return json(res, 200, playgroundView());
+      if (url === '/playground' && req.method === 'POST') { const b = await body(req); return json(res, 200, await playgroundRun(b)); }
       return json(res, 404, { ok: false, message: 'not found' });
     } catch (e) { try { json(res, 500, { ok: false, message: String(e?.message ?? e) }); } catch { /* gone */ } }
   });
@@ -95,10 +252,48 @@ export function createFleetServer() {
 export function startFleetServer() {
   const server = createFleetServer();
   server.listen(PORT, '127.0.0.1', () => console.log(`fleet console http://127.0.0.1:${PORT}/`));
+  // The tick adapts to how slow this machine is right now: on a loaded box a single
+  // snapshot measured 4-6 s, and a fixed 2 s interval then queues work forever and
+  // starves the HTTP handlers (measured: /overview timing out while the port was up).
   let busy = false;
-  const tick = () => { if (busy) return; busy = true; try { last = snapshot(); const p = `data: ${JSON.stringify(last)}\n\n`; for (const r of clients) { try { r.write(p); } catch { /* gone */ } } } catch (e) { console.error(`fleet tick: ${e?.message}`); } finally { busy = false; } };
+  let tickMs = 2000;
+  const tick = () => {
+    if (busy) return;
+    busy = true;
+    const t0 = Date.now();
+    try {
+      last = snapshot();
+      last.snapshotMs = Date.now() - t0;
+      last.tickMs = tickMs;
+      const p = `data: ${JSON.stringify(last)}\n\n`;
+      for (const r of clients) { try { r.write(p); } catch { /* gone */ } }
+    } catch (e) { console.error(`fleet tick: ${e?.message}`); } finally {
+      const took = Date.now() - t0;
+      tickMs = Math.min(15000, Math.max(2000, took * 2));
+      busy = false;
+    }
+  };
+  last = snapshot();
   setTimeout(tick, 200);
-  setInterval(tick, 2000);
+  setInterval(tick, 1000); // the tick checks the clock itself, so the interval can stay short
+  // Other runtimes' stores are read on their own cadence, off the tick: their adapters
+  // are heavy scans (measured 6 s for all of them) and must never block a frame.
+  // Load-aware cadence. The collector reads a dozen other runtimes' stores and costs
+  // seconds of disk and CPU; on a box already at 4x its core count that is the
+  // instrumentation eating the machine it measures (measured: load 380 while 12
+  // adapters plus the dashboard's own probes fought over 4 threads). So: back off
+  // with load, and skip entirely when the box is far too busy to afford the read.
+  const baseMs = Number(process.env.RUNTIME_REFRESH_MS ?? 60000);
+  const cores = os.cpus().length || 4;
+  const loop = async () => {
+    const load = os.loadavg()[0];
+    let delay = baseMs;
+    if (load > cores) delay = baseMs * 4;
+    if (load > cores * 4) { delay = baseMs * 8; }
+    else { await refreshRuntimes().catch(() => {}); }
+    setTimeout(loop, delay).unref?.();
+  };
+  loop();
   return server;
 }
 

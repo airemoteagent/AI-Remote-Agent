@@ -23,6 +23,7 @@ import { CLOUD, loadCreds, credentialStatus } from './config.js';
 import { loadProviderConfig } from './transport/local.js';
 import { Policy, auditVerify } from '@remote-agent/engine';
 import * as sampler from './device-sampler.js';
+import { allSessions, allActivity, coverage, runtimeSummary } from './runtimes/index.js';
 
 const HOME = process.env.REMOTE_AGENT_HOME || join(homedir(), '.remote-agent');
 const PID_FILE = join(HOME, 'daemon.pid');
@@ -267,6 +268,23 @@ export function activityLog(limit = 40) {
   } catch { return []; }
 }
 
+// Public policy surface for the console: the same gate the roster uses, plus a
+// dry-run explainer and a tier reader, so the UI can show what WOULD happen.
+export function gate(action, id) { return policyGate(action, id); }
+
+export function explain(tool, args = {}) {
+  try {
+    const p = Policy.load();
+    const probe = p.auditEnabled ? new Policy({ ...p.raw, audit: false }) : p;
+    const e = probe.explain(tool, args);
+    return { tool, tier: e.tier, allowed: e.tier === 'allow', reason: e.decision ?? e.matched ?? '', policyPath: e.policyPath ?? null };
+  } catch (err) { return { tool, tier: 'deny', allowed: false, reason: `policy unreadable: ${String(err?.message ?? err)}` }; }
+}
+
+export function tierOf(tool) {
+  try { return Policy.load().toolTier(tool); } catch { return 'deny'; }
+}
+
 /** Every run/stop passes the policy gate — a deny is reported, never silently ignored. */
 function policyGate(action, id) {
   try {
@@ -322,6 +340,29 @@ export function stopAgent(id) {
 // Reading the credential store can hit the OS keychain, and the console asks for
 // the head on every tick — so the posture is memoised, not re-read 30x a minute.
 let headCache = { at: 0, val: null };
+
+// --- runtime sessions (every agent runtime on this device) -----------------
+// The registry is async and reads other runtimes' stores, so it is refreshed on a
+// timer and the per-tick snapshot only reads this cache — a slow or broken runtime
+// store must never stall the dashboard.
+let runtimeCache = { at: 0, sessions: [], activity: [], coverage: [], summary: null, error: null };
+
+export async function refreshRuntimes() {
+  try {
+    const [sessions, activity, cov, summary] = await Promise.all([
+      allSessions({ limit: 60 }), allActivity({ limit: 80 }), coverage(), runtimeSummary(),
+    ]);
+    runtimeCache = { at: Date.now(), sessions, activity, coverage: cov, summary, error: null };
+  } catch (e) {
+    runtimeCache = { ...runtimeCache, at: Date.now(), error: String(e?.message ?? e) };
+  }
+  return runtimeCache;
+}
+
+/** Last known runtime state (sync, safe inside the 2 s tick). */
+export function runtimeState() {
+  return runtimeCache;
+}
 
 // --- devices ---------------------------------------------------------------
 // A peer in fleet.json is a claim, not a fact: it is only "online" if its control
@@ -422,6 +463,7 @@ export function catalog({ running = [], devices = [] } = {}) {
     policy: policyPosture(),
     audit: auditPosture(),
     activity: activityLog(40),
+    runtime: runtimeState(),
     models: llms.models, modelsError: llms.error, anyModelConfigured: llms.anyConfigured,
     counts: {
       all: agents.length,
@@ -431,6 +473,9 @@ export function catalog({ running = [], devices = [] } = {}) {
       detected: agents.filter((a) => a.kind === 'process' || a.kind === 'external').length,
       possible: agents.filter((a) => a.confidence === 'possible').length,
       scanned: processAgents.scan?.scanned ?? null,
+      sessions: runtimeCache.sessions.length,
+      sessionsRunning: runtimeCache.sessions.filter((s) => s.status === 'running').length,
+      todoItems: runtimeCache.sessions.reduce((n, s) => n + (s.todos?.length ?? 0), 0),
       devices: live.length,
       devicesOnline: live.filter((d) => d.online === true).length,
     },
