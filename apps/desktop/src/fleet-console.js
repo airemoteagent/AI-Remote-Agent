@@ -84,6 +84,18 @@ export function snapshot() {
 export function consoleFrame() {
   const s = snapshot();
   const d = s.device || deviceFacts();
+  // Do not publish a counter this device cannot substantiate. The session/runtime
+  // counters come from local session stores; without them `counts.sessions` is a
+  // literal 0, and the console prints "0 sessions · 0 running" for a machine that is
+  // mid-conversation. Absent keys render as "not reported", which is the truth.
+  const counts = { ...(s.counts || {}) };
+  const rt = s.runtime || {};
+  const hasSessionReader = Array.isArray(rt.sessions) ? rt.sessions.length > 0 : !!rt.summary;
+  if (!hasSessionReader) {
+    delete counts.sessions;
+    delete counts.sessionsRunning;
+    delete counts.todoItems;
+  }
   const memTotal = d.memTotalMB || 0;
   const memFree = d.memFreeMB || 0;
   return {
@@ -95,9 +107,9 @@ export function consoleFrame() {
     fleet: {
       at: s.at, planeUp: true, planeStale: false, lastOkAt: s.at, planePort: s.port,
       error: null,
-      head: s.head, counts: s.counts, policy: s.policy, audit: s.audit,
+      head: s.head, counts, policy: s.policy, audit: s.audit,
       models: s.models, modelsError: s.modelsError, devices: s.devices,
-      catalog: s.catalog, runtime: s.runtime,
+      catalog: s.catalog, runtime: hasSessionReader ? rt : null,
     },
   };
 }
