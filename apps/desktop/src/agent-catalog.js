@@ -12,7 +12,7 @@
 //   stopAgent(id)           → stop it (skill disable, SIGTERM via the sampler)
 //   head({agents,devices})  → the head posture (linked | offline) + roster size
 //   catalog({running,devices}) → { at, head, counts, agents, devices }
-import { existsSync, readdirSync, readFileSync, openSync, closeSync, readSync, fstatSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync, openSync, closeSync, readSync, fstatSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { homedir, hostname } from 'node:os';
@@ -110,8 +110,17 @@ const SIGNATURES = [
   [/\bn8n\b|\bdify\b|flowise/i, 'agent-platform'],
   [/autogpt|auto-gpt|babyagi|agent-zero|\bletta\b|memgpt|\beliza\b/i, 'autonomous-agent'],
 ];
+// A NEW agent is caught by name, not only by the list above: whatever it is called,
+// "agent", "-ai", "llm", "bot", "copilot", "assistant", "mcp" in the executable name
+// is an agent until proven otherwise. Shells are excluded, and a system path is never
+// claimed (see detectAgents) so `systemd-agent` style OS helpers stay out.
+// Full words anywhere in the name (newagent, helperbot, my-llm-hub), and `ai`/`bot`
+// as separate tokens only — "Main", "Mail" and "Safari" must not become agents. Every
+// hit carries its reason (`name:<comm>`) so a wrong guess is visible and correctable.
+const AGENT_NAME = /(agent|assistant|copilot|chatbot|llm|mcp)|(^|[-_.])(ai|bot)([-_.]|$)|bot$/i;
+const SYSTEM_PATH = /^\/(System|usr\/(bin|libexec|lib|sbin|share)|bin|sbin|Library\/Apple|private)\b/;
 const POSSIBLE = /(agent|assistant|\bllm\b|\bgpt\b|\bchat\b)/i;
-const RUNTIMES = new Set(['node', 'python', 'python3', 'bun', 'deno', 'ruby', 'java']);
+const RUNTIMES = new Set(['node', 'python', 'python3', 'bun', 'deno', 'ruby', 'java', 'bash', 'sh', 'zsh', 'fish', 'env']);
 const REGISTRY_FILE = 'agents.json'; // ~/.remote-agent/agents.json — your own agents
 
 function registryEntries() {
@@ -137,16 +146,26 @@ export function detectAgents(scan = sampler.readProcs()) {
       const target = `${comm} ${head}`;
       for (const [re, id] of SIGNATURES) if (re.test(target)) return { by: `signature:${id}`, confidence: 'known' };
       if (RUNTIMES.has(comm) && / -e | --eval /.test(args)) return null; // a one-liner is not an agent
+      const bin = args.split(' ')[0] || '';
+      if (AGENT_NAME.test(comm) && !SYSTEM_PATH.test(bin)) return { by: `name:${comm}`, confidence: 'known' };
       if (RUNTIMES.has(comm) && POSSIBLE.test(args)) return { by: 'heuristic:agent-ish runtime', confidence: 'possible' };
       return null;
     })();
-    if (hit) out.push({ ...hit, pid: r.pid, name: comm || `pid ${r.pid}`, args, mb: r.rssMB ?? 0, user: r.user });
+    if (hit) {
+      out.push({
+        ...hit, pid: r.pid, name: comm || `pid ${r.pid}`, args, mb: r.rssMB ?? 0, user: r.user,
+        // what a manager needs: the executable to start it again
+        bin: (args.split(' ')[0] || '').trim(),
+      });
+    }
   }
   // Registry entries that are not local processes: a remote or not-yet-started agent.
   const external = custom
     .filter((e) => !out.some((o) => o.by === `registry:${e.id ?? e.name ?? 'agent'}`))
     .map((e) => ({ id: e.id ?? e.name, name: e.name ?? e.id, kind: 'external', role: e.role ?? 'registered',
-      host: e.host ?? null, port: e.port ?? null, note: e.note ?? null, confidence: 'known', actions: e.host ? ['probe'] : [] }));
+      host: e.host ?? null, port: e.port ?? null, command: e.command ?? null, auto: e.auto === true,
+      note: e.note ?? null, confidence: 'known',
+      actions: e.host ? ['probe'] : (e.command ? ['start'] : []) }));
   return { agents: out, external, scanned: rows.length, custom: custom.length };
 }
 
@@ -170,8 +189,74 @@ function processAgents(running = []) {
   return [...local, ...external.map((e) => ({ ...e, confidence: 'known' }))];
 }
 
+// ── auto-registration ───────────────────────────────────────────────────────
+// "Whatever new agent I install, remote-agent manages it" only holds if detection
+// leaves something behind. Every detected agent process whose binary is not yet known
+// is written to the registry ONCE (with the path to start it again), so it survives
+// restarts, shows up as a first-class roster entry and can be run/stopped like any
+// other. Self-written entries are marked auto and never overwrite a hand-written one.
+const AUTO_MAX = Number(process.env.REMOTE_AGENT_AUTO_MAX ?? 60);
+
+const AUTO_JUNK = /(^|\/)(node|python3?|bash|sh|zsh|ssh-agent|gpg-agent|SafeEjectGPUAgent)$/;
+/** An auto entry is stale when it is junk, or when a SIGNATURE already owns that
+ *  agent — a learned entry must never shadow what detection knows by itself. */
+function staleAuto(e) {
+  if (e.auto !== true) return false;                       // hand-written entries are never touched
+  const base = String(e.command || e.match || '').split(/[\s/]/).pop() || '';
+  if (AUTO_JUNK.test(base)) return true;
+  const target = `${base} ${e.command || ''}`;
+  return SIGNATURES.some(([re]) => re.test(target));
+}
+export function autoRegister({ agents = [], dryRun = false } = {}) {
+  const known = registryEntries().filter((e) => !staleAuto(e));
+  const knownRe = known.map((e) => e.match || '').filter(Boolean);
+  const add = [];
+  for (const a of agents) {
+    // Only a NAME match is a new agent. A signature hit is already known, and a
+    // heuristic hit is a guess — neither belongs in the registry. Measured: an
+    // earlier looser rule adopted /usr/local/bin/node, ssh-agent and
+    // SafeEjectGPUAgent, which would have made "node" itself look like an agent.
+    if (!String(a.by || '').startsWith('name:')) continue;
+    if (a.confidence !== 'known') continue;
+    if (!a.bin || SYSTEM_PATH.test(a.bin)) continue;
+    const base = a.bin.split('/').pop().toLowerCase();
+    if (RUNTIMES.has(base) || SHELLS.has(base)) continue;     // an interpreter is not an agent
+    // OS helpers that merely happen to be called *agent*: exact names only. Measured:
+    // an unanchored `agent$` here rejected `newagent` — the exact case this rule exists
+    // to catch — while the test still "passed" because the entry was simply absent.
+    if (/^(ssh|gpg|polkit|keychain|secrets?)-?agent$|^agent$/i.test(base)) continue;
+    if (/remote-agent|node_modules\/\.bin/.test(a.bin)) continue;
+    const esc = a.bin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (knownRe.some((m) => { try { return new RegExp(m, 'i').test(a.bin); } catch { return false; } })) continue;
+    if (add.some((x) => x.command === a.bin)) continue;
+    add.push({
+      id: `auto-${(a.name || 'agent').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24)}`,
+      name: a.name, match: esc, command: a.bin, auto: true,
+      note: 'detected running on this device — edit or delete this entry freely',
+      firstSeen: new Date().toISOString(),
+    });
+  }
+  const next = [...known.map(({ re, ...e }) => e), ...add].slice(0, AUTO_MAX);
+  // Rewrite when something was added OR when a previous looser rule left junk behind —
+  // measured: an early run adopted node/ssh-agent/SafeEjectGPUAgent into the registry.
+  const before = registryEntries();
+  const cleaned = next.length !== before.length;
+  if ((add.length || cleaned) && !dryRun) {
+    try {
+      writeFileSync(join(HOME, REGISTRY_FILE), JSON.stringify({ agents: next }, null, 2));
+      auditWrite({ kind: 'agents', action: 'auto-register', count: add.length, ids: add.map((a) => a.id).join(','), verdict: 'allow' });
+    } catch { /* a full disk must not break the roster */ }
+  }
+  return { added: add, registry: next, dryRun };
+}
+
 /** The whole roster: skills + daemon + peers + every agent process we can prove. */
 export function listAgents({ running = [] } = {}) {
+  const detected = detectAgents();
+  if (!listAgents._autoregistered) {           // once per process, not per tick
+    listAgents._autoregistered = true;
+    try { autoRegister({ agents: detected.agents }); } catch { /* registry optional */ }
+  }
   const pid = daemonPid();
   const daemon = {
     id: 'daemon', name: 'remote-agent daemon', kind: 'daemon', role: 'local runtime',
@@ -304,6 +389,13 @@ export function startAgent(id, { spawnFn = spawn, bin = process.env.REMOTE_AGENT
     const child = spawnFn(bin, ['start', '--force'], { detached: true, stdio: 'ignore' });
     child.unref?.();
     return { ok: true, message: `started daemon (pid ${child.pid ?? '?'})` };
+  }
+  const entry = registryEntries().find((e) => (e.id ?? e.name) === id);
+  if (entry?.command) {
+    const parts = String(entry.command).trim().split(/\s+/);
+    const child = spawnFn(parts[0], parts.slice(1), { detached: true, stdio: 'ignore' });
+    child.unref?.();
+    return { ok: true, message: `started ${entry.name ?? id} (pid ${child.pid ?? '?'})` };
   }
   if (id.startsWith('skill:')) {
     const name = id.slice(6);

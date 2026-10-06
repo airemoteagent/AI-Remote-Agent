@@ -12,7 +12,7 @@ process.env.REMOTE_AGENT_HOME = join(ROOT, '.remote-agent');
 process.env.REMOTE_SKILLS_DIR = join(ROOT, '.remote-agent', 'skills');
 mkdirSync(process.env.REMOTE_SKILLS_DIR, { recursive: true });
 
-const { listAgents, startAgent, stopAgent, head, catalog, daemonPid, listModels, policyPosture, probeDevice, probeDevices, deviceAction, devicesWithLiveness, activityLog, detectAgents } = await import('../src/agent-catalog.js');
+const { listAgents, startAgent, stopAgent, head, catalog, daemonPid, listModels, policyPosture, probeDevice, probeDevices, deviceAction, devicesWithLiveness, activityLog, detectAgents, autoRegister } = await import('../src/agent-catalog.js');
 
 const found = (list, id) => list.find((a) => a.id === id);
 
@@ -177,6 +177,69 @@ describe('agent-catalog', () => {
     const found = detectAgents([{ pid: 77, comm: 'node', args: 'node /opt/homebrew/bin/goose session', cpu: 0, rssMB: 12, user: 'me' }]);
     assert.equal(found.agents.length, 1);
     assert.equal(found.agents[0].pid, 77);
+  });
+
+  test('an agent nobody has heard of is still detected, by its name', () => {
+    const cases = [
+      ['newagent', '/opt/tools/newagent --serve', 1],
+      ['helperbot', 'helperbot', 1],
+      ['acme-ai', '/usr/local/bin/acme-ai', 1],
+      ['llm-hub', '/opt/llm-hub -c cfg', 1],
+      ['mcp-files', 'mcp-files', 1],
+      // things that merely CONTAIN those letters, or are OS helpers, are not agents
+      ['Main', 'Main', 0],
+      ['Mail', 'Mail', 0],
+      ['mysql', '/usr/local/mysql/bin/mysqld', 0],
+    ];
+    const found = detectAgents(cases.map(([comm, args], i) => ({ pid: 500 + i, comm, args, rssMB: 12, user: 'me' })));
+    const by = Object.fromEntries(found.agents.map((a) => [a.name, a.by]));
+    for (const [comm, , want] of cases) assert.equal(by[comm] ? 1 : 0, want, `${comm} detection should be ${want}`);
+    assert.equal(by.newagent, 'name:newagent');
+    assert.equal(found.agents.find((a) => a.name === 'acme-ai').bin, '/usr/local/bin/acme-ai', 'the binary to start it again is captured');
+  });
+
+  test('a newly installed agent is auto-registered, and junk is refused', () => {
+    const reg = join(process.env.REMOTE_AGENT_HOME, 'agents.json');
+    writeFileSync(reg, JSON.stringify({ agents: [
+      { id: 'auto-node', command: '/usr/local/bin/node', auto: true },        // junk from a looser rule
+      { id: 'hand-made', match: 'my-own-agent', command: '/opt/mine' },       // a hand-written entry
+    ] }));
+    const rows = (list) => list.map(([comm, args, pid]) => ({ pid, comm, args, rssMB: 10, user: 'me' }));
+    const detected = detectAgents(rows([
+      ['newagent', '/opt/tools/newagent --serve', 11],
+      ['ssh-agent', '/usr/bin/ssh-agent', 12],
+      ['SafeEjectGPUAgent', '/System/Library/SafeEjectGPUAgent', 13],
+      ['ollama', 'ollama serve', 14],                                        // signature hit: already known
+      ['node', 'node /srv/agent-thing.js', 15],                              // heuristic: a guess, not registry material
+    ]));
+    const r = autoRegister({ agents: detected.agents });
+    const ids = r.registry.map((e) => e.id);
+    assert.deepEqual(r.added.map((a) => a.command), ['/opt/tools/newagent'], 'only the genuinely new agent is added');
+    assert.ok(ids.includes('hand-made'), 'a hand-written entry survives');
+    assert.ok(!ids.includes('auto-node'), 'the junk entry is cleaned out');
+    assert.equal(r.registry.find((e) => e.id === 'auto-newagent').auto, true);
+    const onDisk = JSON.parse(readFileSync(reg, 'utf8')).agents.map((e) => e.id);
+    assert.ok(onDisk.includes('auto-newagent'), 'written to disk, so it survives a restart');
+    writeFileSync(reg, JSON.stringify({ agents: [{ id: 'hand-made', match: 'my-own-agent', command: '/opt/mine' }] }));
+  });
+
+  test('a registered agent can be run and stopped by the head', async () => {
+    const reg = join(process.env.REMOTE_AGENT_HOME, 'agents.json');
+    writeFileSync(reg, JSON.stringify({ agents: [{ id: 'auto-sleeper', name: 'sleeper', command: '/bin/sleep 30', auto: true }] }));
+    const started = startAgent('auto-sleeper');
+    assert.equal(started.ok, true, started.message);
+    const pid = Number(String(started.message).match(/pid (\d+)/)?.[1]);
+    assert.ok(Number.isFinite(pid) && pid > 1, 'the spawn reports its pid');
+    assert.equal(daemonPid() === pid, false);
+    const listed = listAgents({ running: [] }).find((a) => a.id === 'auto-sleeper');
+    assert.ok(listed, 'the registered agent is on the roster');
+    assert.ok(listed.actions.includes('start'));
+    const stopped = stopAgent(`proc:${pid}`);
+    assert.equal(stopped.ok, true, JSON.stringify(stopped));
+    await new Promise((r) => setTimeout(r, 200));
+    let alive = true; try { process.kill(pid, 0); } catch { alive = false; }
+    assert.equal(alive, false, 'stop actually ended it');
+    writeFileSync(reg, JSON.stringify({ agents: [] }));
   });
 
   test('a device is online only if something answers on its port', async () => {
