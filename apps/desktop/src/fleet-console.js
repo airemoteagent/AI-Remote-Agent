@@ -287,10 +287,11 @@ export function startFleetServer() {
   const cores = os.cpus().length || 4;
   const loop = async () => {
     const load = os.loadavg()[0];
-    let delay = baseMs;
-    if (load > cores) delay = baseMs * 4;
-    if (load > cores * 4) { delay = baseMs * 8; }
-    else { await refreshRuntimes().catch(() => {}); }
+    // Slow down under load, but NEVER skip: a guard that starves the data is the
+    // same defect as a dashboard that shows nothing (measured: with a skip above
+    // 4x cores the roster went empty on a loaded box and the page looked broken).
+    const delay = load > cores * 4 ? 300000 : load > cores ? baseMs * 4 : baseMs;
+    await refreshRuntimes().catch(() => {});
     setTimeout(loop, delay).unref?.();
   };
   loop();
