@@ -10,6 +10,7 @@ import { statfsSync } from 'node:fs';
 import { CLOUD, DEFAULTS } from './config.js';
 import { log } from './log.js';
 import { envelope, TYPES, isTerminalClose, parseFrame, checkVersion, validateCommandFrame, CLOSE_CODES } from '@remote-agent/protocol';
+import { snapshot as consoleSnapshot } from './fleet-console.js';
 
 // ── Versioned frames ──────────────────────────────────────────────
 // Every outbound frame is built with the shared wire contract
@@ -49,6 +50,8 @@ export class ControlChannel extends EventEmitter {
   #llmPending = new Map();
   #metricsTimer = null;
   #metricsIntervalMs;
+  #consoleTimer = null;
+  #consoleIntervalMs;
   #backoff = DEFAULTS.reconnectMinMs;
   #reconnectTimer = null;
   #closing = false;
@@ -62,6 +65,10 @@ export class ControlChannel extends EventEmitter {
     this.#agentId = agentId;
     this.#capabilities = capabilities;
     this.#metricsIntervalMs = metricsIntervalMs || DEFAULTS.metricsIntervalMs;
+    // The hosted console (remoteagent.online/console) renders the same shell and the
+    // same panel modules as the local dashboard, from a frame the device publishes.
+    // Slower than metrics on purpose: a frame is ~90 KB of state, not a heartbeat.
+    this.#consoleIntervalMs = Number(process.env.CONSOLE_INTERVAL_MS || 20000);
   }
 
   /**
@@ -302,6 +309,7 @@ export class ControlChannel extends EventEmitter {
     };
     tick();
     this.#metricsTimer = setInterval(tick, this.#metricsIntervalMs);
+    this.#startConsolePush();
   }
 
   /** Push metrics + host info to the Sngine PHP API over HTTPS. */
@@ -340,6 +348,34 @@ export class ControlChannel extends EventEmitter {
       clearInterval(this.#metricsTimer);
       this.#metricsTimer = null;
     }
+    if (this.#consoleTimer) {
+      clearInterval(this.#consoleTimer);
+      this.#consoleTimer = null;
+    }
+  }
+
+  /**
+   * Publish the frame the console renders, so remoteagent.online can show the same
+   * dashboard the machine shows. Trimmed to state: the process list keeps its 60
+   * busiest rows (the local view keeps all 250) and nothing here is invented — an
+   * unreachable sampler means no push, not an empty frame that reads as "idle".
+   */
+  #startConsolePush() {
+    if (this.#consoleTimer) return;
+    const push = () => {
+      let frame;
+      try { frame = consoleSnapshot(); } catch { return; }
+      if (!frame || !frame.device) return;
+      if (Array.isArray(frame.procs)) frame.procs = frame.procs.slice(0, 60);
+      fetch(`${CLOUD.base}/api/v1/agent/console`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${this.#apiKey}` },
+        body: JSON.stringify(frame),
+      }).catch(() => {});
+    };
+    push();                                        // first frame immediately
+    this.#consoleTimer = setInterval(push, this.#consoleIntervalMs);
+    if (this.#consoleTimer.unref) this.#consoleTimer.unref();
   }
 
   // ── Lifecycle ───────────────────────────────────────────────────
