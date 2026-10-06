@@ -23,7 +23,7 @@
     "npm": ">=9"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.22.0"
   },
   "license": "MIT",
   "repository": {
