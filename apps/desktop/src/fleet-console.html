@@ -26,6 +26,21 @@
 <body>
 <div class="wrap">
   <header><h1>remoteagent · fleet</h1><span class="live"><span class="dot"></span>live</span><span class="chip" id="modeChip">…</span><span class="meta" id="meta">…</span></header>
+  <div class="card"><h2>head · remoteagent.online <span class="tiny" id="headSub">…</span></h2>
+    <div class="row" id="headCounts"></div>
+    <div class="row" id="glass"></div>
+  </div>
+  <div class="card"><h2>agents · every known agent (running or not) <span class="tiny" id="rosterSub"></span></h2>
+    <div class="row">
+      <input id="aq" placeholder="filter agents / skills / models…">
+      <select id="akind">
+        <option value="">all kinds</option><option value="skill">skills</option><option value="daemon">daemon</option>
+        <option value="process">processes</option><option value="peer">peers</option>
+      </select>
+      <span class="tiny" id="modelSub"></span>
+    </div>
+    <div class="scroll" id="roster"></div>
+  </div>
   <div class="card"><h2>fleet</h2><div class="stats" id="stats"></div></div>
   <div class="grid2">
     <div class="card"><h2>devices <span class="tiny" id="devSub"></span></h2><div class="scroll" id="devices"></div></div>
@@ -45,31 +60,66 @@
 <script>
 const $=(s)=>document.querySelector(s);const CO={agents:'#38bdf8',control:'#a78bfa',apps:'#34d399',browser:'#f472b6',system:'#8b9bb4',other:'#64748b'};
 let F=null,last=0;const api=(p,b)=>fetch('/'+p,{method:b?'POST':'GET',headers:{'content-type':'application/json'},body:b?JSON.stringify(b):undefined}).then(r=>r.json());
-const esc=(s)=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const esc=(s)=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function renderHead(f){
+  const h=f.head||{},c=f.counts||{},p=f.policy||{},a=f.audit||{},m=f.models||[];
+  $('#headSub').innerHTML=h.status==='linked'
+    ? `<span class="ok">linked</span> · ${esc(h.url||'')} · ${esc(h.platform||'')}`
+    : `<span class="warn">no key</span> · ${esc(h.note||'')}`;
+  $('#headCounts').innerHTML=[['agents',`${c.running??0}/${c.all??0}`],['skills on',`${c.enabled??0}/${c.skills??0}`],
+    ['devices',`${c.devicesOnline??0}/${c.devices??0} online`],['llms',`${m.filter(x=>x.configured).length}/${m.length}`]]
+    .map(([k,v])=>`<span class="chip">${k} <b>${v}</b></span>`).join('');
+  $('#glass').innerHTML=[['policy',esc(p.source||'—')],
+    ['fleet tier',`<b class="${p.fleetTier==='allow'?'ok':'bad'}">${esc(p.fleetTier||'deny')}</b>`],
+    ['audit',a.ok===true?`<span class="ok">chain ok · ${a.checked??0}</span>`:`<span class="bad">${a.brokenAt!=null?`broken @${a.brokenAt}`:'unreadable'} · ${esc(a.reason||'no path')}</span>`]]
+    .map(([k,v])=>`<span class="chip">${k} ${v}</span>`).join('');
+  $('#modelSub').textContent=m.length?`llms: ${m.map(x=>x.provider+(x.configured?'✓':'')).join(' · ')}`:'';
+}
+function renderRoster(f){
+  const cat=f.catalog||[],q=($('#aq').value||'').toLowerCase(),kf=$('#akind').value;
+  const list=cat.filter(a=>(!kf||a.kind===kf)&&(!q||JSON.stringify(a).toLowerCase().includes(q)));
+  $('#rosterSub').textContent=`${list.length}/${cat.length}`;
+  $('#roster').innerHTML=list.length?'<table><tr><th>kind</th><th>agent</th><th>status</th><th>what it is doing</th><th>actions</th></tr>'+list.map(a=>{
+    const col=['running','online','enabled'].includes(a.status)?'ok':['paused','available','disabled'].includes(a.status)?'warn':'tiny';
+    const what=a.description||a.task||a.activity||(a.pid?`pid ${a.pid} · ${a.cpu??0}% · ${a.mb??0}M`:'')||a.note||'—';
+    const act=(a.actions||[]).map(x=>['start','enable','install'].includes(x)
+      ? `<button class="good" onclick="run('${esc(a.id)}')">${x==='install'?'install':x}</button>`
+      : `<button class="danger" onclick="stop('${esc(a.id)}')">${x==='disable'?'disable':'stop'}</button>`).join(' ');
+    return `<tr><td><span class="cat-tag">${esc(a.kind)}</span></td><td>${esc(a.name)} <span class="tiny">${esc(a.id)}</span></td>
+      <td class="${col}">${esc(a.status)}</td><td title="${esc(what)}">${esc(String(what).slice(0,80))}</td><td>${act||'<span class="tiny">—</span>'}</td></tr>`;
+  }).join('')+'</table>':'<div class="tiny">nothing matches.</div>';
+}
 function render(f){F=f;document.body.classList.toggle('stale',Date.now()-last>6000);
+ renderHead(f);renderRoster(f);
  const d=f.device||{},b=f.budget||{},tot=Object.values(b).reduce((a,x)=>a+x,0)||1;
  $('#meta').textContent=(d.host||'?')+' · '+(d.cores||'?')+' cores · '+(d.platform||'')+' · :'+f.port;
  $('#modeChip').textContent='MODE · '+((f.gate&&f.gate.mode)||'balanced');
- $('#stats').innerHTML=[['devices',(f.devices||[]).length,''],['agents',(f.agents||[]).length,''],['busy',(f.busy||0)+'%',(f.busy||0)>(d.cores||4)*85?'bad':'ok'],['load',((f.load||[])[0]??'-'),''],['swap used',((f.swap&&f.swap.used)||0)+'M',''],['paused',(f.paused||[]).length,'']]
+ $('#stats').innerHTML=[['devices',(f.devices||[]).length,''],['agents live',(f.agents||[]).length,''],['roster',(f.catalog||[]).length,''],['busy',(f.busy||0)+'%',(f.busy||0)>(d.cores||4)*85?'bad':'ok'],['load',((f.load||[])[0]??'-'),''],['swap used',((f.swap&&f.swap.used)||0)+'M',''],['paused',(f.paused||[]).length,'']]
    .map(([k,v,c])=>`<div class="stat"><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`).join('');
  $('#bar').innerHTML=Object.entries(CO).map(([k,col])=>b[k]>0?`<div style="width:${100*b[k]/tot}%;background:${col}" title="${k}"></div>`:'').join('');
  $('#legend').innerHTML=Object.entries(CO).map(([k,col])=>`<span><i class="sw" style="background:${col}"></i>${k} <b>${(b[k]||0).toFixed(0)}%</b></span>`).join('');
  const g=f.gate||{};$('#gGuard').textContent=g.cpuGuard?'cpu-guard ARMED':'cpu-guard OFF';$('#gGuard').className=g.cpuGuard?'good':'danger';
  $('#gPrio').textContent=g.priority?'priority ARMED':'priority OFF';$('#gPrio').className=g.priority?'good':'danger';
- const D=f.devices||[];$('#devSub').textContent=D.length+' online';
- $('#devices').innerHTML='<table><tr><th>id</th><th>role</th><th>host</th><th>plat</th><th class="num">cores</th><th class="num">busy</th><th class="num">agents</th></tr>'+D.map(x=>`<tr><td>${esc(x.id||x.host||'?')}</td><td class="tiny">${esc(x.role||'peer')}</td><td class="tiny">${esc(x.host||'')}</td><td class="tiny">${esc(x.platform||'')}</td><td class="num">${x.cores??'-'}</td><td class="num">${x.busy!=null?x.busy+'%':'-'}</td><td class="num">${x.agents??'-'}</td></tr>`).join('')+'</table>';
+ const D=f.devices||[];$('#devSub').textContent=D.filter(x=>x.online===true).length+'/'+D.length+' online';
+ $('#devices').innerHTML='<table><tr><th>id</th><th>role</th><th>host</th><th>plat</th><th class="num">cores</th><th class="num">busy</th><th class="num">agents</th><th>state</th><th>govern</th></tr>'+D.map(x=>`<tr><td>${esc(x.id||x.host||'?')}</td><td class="tiny">${esc(x.role||'peer')}</td><td class="tiny">${esc(x.host||'')}</td><td class="tiny">${esc(x.platform||'')}</td><td class="num">${x.cores??'-'}</td><td class="num">${x.busy!=null?x.busy+'%':'-'}</td><td class="num">${x.agents??'-'}</td><td class="${x.online===true?'ok':x.online===false?'bad':'tiny'}" title="${esc(x.probe||'')}">${x.online===true?'online':x.online===false?'offline':'probing…'}</td><td>${(x.actions||[]).map(a=>a==='probe'?`<button onclick="dev('${esc(x.id)}','probe')">probe</button>`:a==='resume-agents'?`<button class="good" onclick="dev('${esc(x.id)}','resume-agents')">▶ agents</button>`:`<button onclick="dev('${esc(x.id)}','pause-agents')">⏸ agents</button>`).join(' ')}</td></tr>`).join('')+'</table>';
  const ag=f.agents||[];$('#agentSub').textContent=ag.length+' live';
  $('#agents').innerHTML=ag.length?'<table><tr><th>pid</th><th>cpu</th><th>mem</th><th>cat</th><th>cmd</th><th></th></tr>'+ag.map(p=>`<tr><td>${p.pid}</td><td class="num">${p.cpu.toFixed(1)}</td><td class="num">${p.mb}M</td><td><span class="cat-tag">${p.category}</span></td><td>${esc(p.cmd)}</td><td>${p.protected?'<span class="tiny">protected</span>':(p.paused?`<button class="good" onclick="act('resume',{pid:${p.pid}})">▶</button>`:`<button onclick="act('pause',{pid:${p.pid}})">⏸</button>`)}</td></tr>`).join('')+'</table>':'<div class="tiny">no agent processes.</div>';
  const q=($('#q').value||'').toLowerCase(),bo=$('#burn').checked;const list=(f.procs||[]).filter(p=>(!bo||p.cpu>=1||p.mb>=400||p.paused)&&(!q||(p.cmd+' '+p.pid).toLowerCase().includes(q)));
  $('#procSub').textContent=list.length+' shown';$('#procs').innerHTML='<table><tr><th>pid</th><th>cpu</th><th>mem</th><th>nice</th><th>cat</th><th>cmd</th><th></th></tr>'+list.map(p=>`<tr><td>${p.pid}</td><td class="num">${p.cpu.toFixed(1)}</td><td class="num">${p.mb}M</td><td class="num">${p.nice}</td><td><span class="cat-tag">${p.category}</span></td><td title="${esc(p.args)}">${esc(p.cmd)}</td><td>${p.protected?'<span class="tiny">protected</span>':(p.paused?`<button class="good" onclick="act('resume',{pid:${p.pid}})">▶</button>`:`<button onclick="act('pause',{pid:${p.pid}})">⏸</button>`)+`<button onclick="ren(${p.pid},${p.nice})">⤓</button><button class="danger" onclick="kil(${p.pid})">✕</button>`}</td></tr>`).join('')+'</table>';
  last=Date.now();}
 async function act(p,b){await api(p,b);setTimeout(async()=>render(await api('status')),300);}
+async function run(id){const r=await api('agents/run',{id});if(!r.ok)alert(r.message||'refused by policy');await act('status');}
+async function stop(id){const r=await api('agents/stop',{id});if(!r.ok)alert(r.message||'refused by policy');await act('status');}
+async function dev(id,action){const r=await api('devices/action',{id,action});if(!r.ok)alert(r.message||'refused by policy');await act('status');}
 async function ren(pid,nice){const v=prompt('renice '+pid+' (0-20):',nice>=20?10:20);if(v!=null)await act('renice',{pid,nice:Number(v)});}
 async function kil(pid){if(confirm('Kill '+pid+'?'))await act('kill',{pid,signal:'SIGTERM'});}
 document.querySelectorAll('[data-mode]').forEach(x=>x.onclick=()=>act('mode',{mode:x.dataset.mode}));
 document.querySelectorAll('[data-gate]').forEach(x=>x.onclick=async()=>{const k=x.dataset.gate;const r=await api('gate',{[k]:!F.gate[k]});if(r.gate)F.gate=r.gate;render(F);});
 $('#q').oninput=()=>F&&render(F);$('#burn').onchange=()=>F&&render(F);
-const es=new EventSource('/events');es.onmessage=(e)=>{try{render(JSON.parse(e.data))}catch(_){}};
+$('#aq').oninput=()=>F&&render(F);$('#akind').onchange=()=>F&&render(F);
+// ?noevents=1 renders one static frame (headless DOM check: an open SSE stream
+// never lets the browser reach a "loaded" state to be inspected).
+if(!location.search.includes('noevents')){const es=new EventSource('/events');es.onmessage=(e)=>{try{render(JSON.parse(e.data))}catch(_){}};}
 api('status').then(render).catch(()=>{});
 </script>
 </body>

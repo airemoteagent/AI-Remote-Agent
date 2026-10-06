@@ -28,6 +28,22 @@ the reason attached, every verdict lands in the hash-chained audit log, and the
 sampler's protected-pid rules (pid 1, this process, control-surface port owners,
 core GUI daemons are never touched).
 
+## Devices (governed, and probed rather than assumed)
+
+`GET /devices` TCP-probes every device on its control port and caches the verdict
+for 15 s (`probe` carries the reason: `tcp host:port ok`, `no answer in 1200ms`,
+`tcp ECONNREFUSED`). Inside the per-tick snapshot the cached verdict is used and a
+stale one is refreshed in the background, so a dead peer never costs a frame.
+
+`POST /devices/action {id, action}` — actions come from the device entry itself:
+
+| device | actions | meaning |
+|---|---|---|
+| self | `pause-agents`, `resume-agents`, `probe` | SIGSTOP / SIGCONT this machine's agent processes |
+| peer | `probe` | reachability only — **there is no remote control channel**, and the endpoint says so instead of pretending |
+
+Device actions pass the same `Policy.check('fleet', …)` gate as agent run/stop.
+
 ## The head
 
 `remoteagent.online` is the head entry (`role: "ceo"`): it reads this roster and
@@ -52,8 +68,8 @@ Policy is read from local disk only — a remote policy update is rejected, as e
 ```
 { at, console:"fleet", port,
   device:  { id, host, platform, arch, cores, model, memTotalMB, memFreeMB, uptimeS },
-  devices: [ {…device, role, agents, busy, paused }, …roster ],
-  head{}, counts{all,running,skills,enabled,devices}, catalog[],
+  devices: [ {…device, role, agents, busy, paused, online, probe, actions}, …roster ],
+  head{}, counts{all,running,skills,enabled,devices,devicesOnline}, catalog[],
   policy{}, audit{}, models[], modelsError,
   busy, budget{agents,control,apps,browser,system,other}, groups[],
   agents[], procs[], load[], swap{}, gate{}, paused[] }

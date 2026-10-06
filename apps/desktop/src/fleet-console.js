@@ -21,7 +21,7 @@ import os from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as sampler from './device-sampler.js';
-import { catalog, listAgents, startAgent, stopAgent } from './agent-catalog.js';
+import { catalog, listAgents, startAgent, stopAgent, probeDevices, deviceAction } from './agent-catalog.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.FLEET_PORT || 3095);
@@ -53,7 +53,7 @@ export function snapshot() {
   const cat = catalog({ running: agents, devices });
   return {
     at: Date.now(), console: 'fleet', port: PORT,
-    device: self, devices, head: cat.head, counts: cat.counts, catalog: cat.agents,
+    device: self, devices: cat.devices, head: cat.head, counts: cat.counts, catalog: cat.agents,
     policy: cat.policy, audit: cat.audit, models: cat.models, modelsError: cat.modelsError,
     busy: c.busy, budget: c.budget, groups: c.groups,
     agents, procs: c.rows.slice(0, 250),
@@ -75,9 +75,11 @@ export function createFleetServer() {
       if (url === '/' || url === '/index.html') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); return res.end(readFileSync(join(HERE, 'fleet-console.html'))); }
       if (url === '/events') { res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' }); res.write(`data: ${JSON.stringify(last ?? snapshot())}\n\n`); clients.add(res); req.on('close', () => clients.delete(res)); return; }
       if (url === '/status' || url === '/overview') return json(res, 200, last ?? snapshot());
-      if (url === '/agents') return json(res, 200, { head: (last ?? snapshot()).head, agents: listAgents({ running: (last ?? snapshot()).agents }) });
+      if (url === '/agents') { const s = last ?? snapshot(); return json(res, 200, { head: s.head, agents: listAgents({ running: s.agents }) }); }
       if (url === '/agents/run' && req.method === 'POST') { const b = await body(req); return json(res, 200, b.id ? startAgent(String(b.id)) : { ok: false, message: 'need id' }); }
       if (url === '/agents/stop' && req.method === 'POST') { const b = await body(req); return json(res, 200, b.id ? stopAgent(String(b.id)) : { ok: false, message: 'need id' }); }
+      if (url === '/devices') { const s = last ?? snapshot(); return json(res, 200, { devices: await probeDevices(s.devices) }); }
+      if (url === '/devices/action' && req.method === 'POST') { const b = await body(req); if (!b.id) return json(res, 400, { ok: false, message: 'need id' }); return json(res, 200, deviceAction(String(b.id), String(b.action || 'probe'))); }
       if (url === '/gate' && req.method === 'POST') { const b = await body(req); return json(res, 200, { ok: true, gate: sampler.setGate(b) }); }
       if (url === '/mode' && req.method === 'POST') { const b = await body(req); return json(res, 200, sampler.applyMode(String(b.mode || ''), snapshot())); }
       if (url === '/pause' && req.method === 'POST') { const b = await body(req); if (b.pid) return json(res, 200, sampler.pausePids([b.pid])); const { selectGroup } = await import('@remote-agent/engine'); return json(res, 200, sampler.pausePids(selectGroup(b.target || 'agents', snapshot().procs))); }

@@ -3,7 +3,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, hostname } from 'node:os';
 import { join } from 'node:path';
 
 const ROOT = mkdtempSync(join(tmpdir(), 'catalog-'));
@@ -12,7 +12,7 @@ process.env.REMOTE_AGENT_HOME = join(ROOT, '.remote-agent');
 process.env.REMOTE_SKILLS_DIR = join(ROOT, '.remote-agent', 'skills');
 mkdirSync(process.env.REMOTE_SKILLS_DIR, { recursive: true });
 
-const { listAgents, startAgent, stopAgent, head, catalog, daemonPid, listModels, policyPosture } = await import('../src/agent-catalog.js');
+const { listAgents, startAgent, stopAgent, head, catalog, daemonPid, listModels, policyPosture, probeDevice, probeDevices, deviceAction, devicesWithLiveness } = await import('../src/agent-catalog.js');
 
 const found = (list, id) => list.find((a) => a.id === id);
 
@@ -87,8 +87,7 @@ describe('agent-catalog', () => {
     assert.equal(typeof p.audit, 'boolean');
   });
 
-  test('a policy that denies fleet refuses run/stop and says why', async () => {
-    // strict = read-only observer: the roster is readable, control is not.
+  test('a policy that denies fleet refuses run/stop and says why', async () => {    // strict = read-only observer: the roster is readable, control is not.
     const { writeFileSync } = await import('node:fs');
     const policyPath = join(process.env.REMOTE_AGENT_HOME, 'policy.json');
     writeFileSync(policyPath, JSON.stringify({ audit: false, tools: { fleet: 'deny' } }));
@@ -99,5 +98,33 @@ describe('agent-catalog', () => {
     assert.match(r.message, /policy/);
     writeFileSync(policyPath, JSON.stringify({ audit: false, tools: { fleet: 'allow' } }));
     assert.equal(startAgent('skill:disk-health').ok, true, 'allow tier runs again');
+  });
+
+  test('a device is online only if something answers on its port', async () => {
+    const net = await import('node:net');
+    const srv = net.createServer(() => {});
+    await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+    const live = { id: 'live', host: '127.0.0.1', port: srv.address().port, role: 'edge' };
+    const dead = { id: 'dead', host: '127.0.0.1', port: 9, role: 'edge' };
+
+    assert.equal((await probeDevice(live, { timeoutMs: 1500 })).online, true);
+    assert.equal((await probeDevice(dead, { timeoutMs: 1500 })).online, false);
+    const probed = await probeDevices([live, dead]);
+    assert.deepEqual(probed.map((d) => d.online), [true, false]);
+    srv.close();
+  });
+
+  test('the head governs its own agents, and refuses to pretend it governs a peer', () => {
+    assert.deepEqual(devicesWithLiveness([{ id: 'me', host: hostname(), role: 'self' }])[0].actions,
+      ['pause-agents', 'resume-agents', 'probe']);
+    assert.deepEqual(devicesWithLiveness([{ id: 'pi-1', host: 'pi-1.lan', role: 'edge' }])[0].actions, ['probe']);
+
+    const peer = deviceAction('pi-1.lan', 'pause-agents');
+    assert.equal(peer.ok, false);
+    assert.match(peer.message, /no remote control channel/);
+    assert.match(deviceAction('pi-1.lan', 'probe').message, /probe requested/);
+
+    const junk = deviceAction(hostname(), 'nonsense');
+    assert.equal(junk.ok, false);
   });
 });

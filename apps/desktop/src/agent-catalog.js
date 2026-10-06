@@ -14,7 +14,8 @@
 //   catalog({running,devices}) → { at, head, counts, agents, devices }
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { homedir } from 'node:os';
+import { connect } from 'node:net';
+import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SkillsManager, parseSkillDoc } from './skills.js';
@@ -78,7 +79,10 @@ function processAgents(running = []) {
   return running.map((r) => ({
     id: `proc:${r.pid}`, name: r.cmd || `pid ${r.pid}`, kind: 'process', role: 'running',
     status: sampler.paused?.has?.(Number(r.pid)) ? 'paused' : 'running',
-    pid: r.pid, cpu: r.cpu ?? 0, mb: r.mb ?? 0, actions: ['stop'],
+    pid: r.pid, cpu: r.cpu ?? 0, mb: r.mb ?? 0,
+    // What it is doing right now: the census already carries the command line.
+    activity: String(r.args ?? '').slice(0, 160) || null,
+    actions: ['stop'],
   }));
 }
 
@@ -200,8 +204,74 @@ export function stopAgent(id) {
 // the head on every tick — so the posture is memoised, not re-read 30x a minute.
 let headCache = { at: 0, val: null };
 
-/** remoteagent.online — the head: it owns the roster, the devices and the money. */
-export function head({ agents = 0, devices = 0 } = {}) {
+// --- devices ---------------------------------------------------------------
+// A peer in fleet.json is a claim, not a fact: it is only "online" if its control
+// port actually answers. Probes are bounded and cached, because snapshot() runs
+// every tick and a dead peer must not cost the frame a TCP timeout.
+const probeCache = new Map(); // host -> { at, online, why }
+const PROBE_TTL_MS = 15000;
+
+function probePort(d) {
+  return Number(d.port || process.env.FLEET_PORT || 3095);
+}
+
+/** TCP-probe one device. Never throws, never hangs longer than timeoutMs. */
+export function probeDevice(d, { timeoutMs = 1200 } = {}) {
+  const host = d.host || d.id;
+  if (d.role === 'self' || host === hostname()) return Promise.resolve({ online: true, why: 'self' });
+  return new Promise((resolve) => {
+    const sock = connect({ host, port: probePort(d) });
+    const done = (online, why) => { try { sock.destroy(); } catch { /* closed */ } resolve({ online, why }); };
+    sock.setTimeout(timeoutMs);
+    sock.once('connect', () => done(true, `tcp ${host}:${probePort(d)} ok`));
+    sock.once('timeout', () => done(false, `no answer in ${timeoutMs}ms`));
+    sock.once('error', (e) => done(false, `tcp ${e.code || e.message}`));
+  });
+}
+
+/** Probe every device and cache the verdict. This is what makes `online` real. */
+export async function probeDevices(devices = [], opts) {
+  return Promise.all(devices.map(async (d) => {
+    const r = await probeDevice(d, opts);
+    probeCache.set(d.host || d.id, { at: Date.now(), ...r });
+    return { ...d, online: r.online, probe: r.why };
+  }));
+}
+
+/** Sync wrapper for the per-tick snapshot: cached verdict now, refresh in the background. */
+export function devicesWithLiveness(devices = []) {
+  return devices.map((d) => {
+    const key = d.host || d.id;
+    const hit = probeCache.get(key);
+    if (d.role === 'self' || key === hostname()) return { ...withActions(d), online: true, probe: 'self' };
+    if (!hit || Date.now() - hit.at > PROBE_TTL_MS) probeDevice(d).then((r) => probeCache.set(key, { at: Date.now(), ...r })).catch(() => {});
+    return { ...withActions(d), online: hit ? hit.online : null, probe: hit ? hit.why : 'probing…' };
+  });
+}
+
+/** What the head may do to a device. Self: govern its local agents. Peer: probe only
+ *  (no remote agent API is assumed — inventing one would be a promise we cannot keep). */
+function withActions(d) {
+  const self = d.role === 'self' || (d.host || d.id) === hostname();
+  return { ...d, actions: self ? ['pause-agents', 'resume-agents', 'probe'] : ['probe'] };
+}
+
+/** Run one device action. Same policy gate as agents: the head asks, policy decides. */
+export function deviceAction(id, action) {
+  const gate = policyGate('device', `${id}:${action}`);
+  if (!gate.ok) return { ok: false, denied: true, message: `policy (${gate.tier}): ${gate.reason}` };
+  if (action === 'pause-agents' || action === 'resume-agents') {
+    if (id !== hostname() && id !== 'self') return { ok: false, message: `refusing to ${action} on a peer — no remote control channel exists` };
+    const c = sampler.sample({ minCpu: 0.3 });
+    const pids = c.rows.filter((r) => r.bucket === 'agents').map((r) => r.pid);
+    const r = action === 'pause-agents' ? sampler.pausePids(pids) : sampler.resumeAll();
+    return { ...r, message: `${action}: ${action === 'pause-agents' ? (r.paused?.length ?? 0) : (r.resumed?.length ?? 0)} process(es)` };
+  }
+  if (action === 'probe') return { ok: true, message: `probe requested for ${id}` };
+  return { ok: false, message: `unknown device action ${action}` };
+}
+
+/** remoteagent.online — the head: it owns the roster, the devices and the money. */export function head({ agents = 0, devices = 0 } = {}) {
   const now = Date.now();
   if (!headCache.val || now - headCache.at > 30000) {
     let meta = {};
@@ -225,10 +295,11 @@ export function head({ agents = 0, devices = 0 } = {}) {
 
 export function catalog({ running = [], devices = [] } = {}) {
   const agents = listAgents({ running });
+  const live = devicesWithLiveness(devices); // online is probed, never assumed
   const llms = listModels();
   return {
     at: Date.now(),
-    head: head({ agents: agents.filter((a) => a.kind !== 'skill').length, devices: devices.length }),
+    head: head({ agents: agents.filter((a) => a.kind !== 'skill').length, devices: live.length }),
     policy: policyPosture(),
     audit: auditPosture(),
     models: llms.models, modelsError: llms.error, anyModelConfigured: llms.anyConfigured,
@@ -237,8 +308,9 @@ export function catalog({ running = [], devices = [] } = {}) {
       running: agents.filter((a) => a.status === 'running' || a.status === 'paused').length,
       skills: agents.filter((a) => a.kind === 'skill').length,
       enabled: agents.filter((a) => a.status === 'enabled').length,
-      devices: devices.length,
+      devices: live.length,
+      devicesOnline: live.filter((d) => d.online === true).length,
     },
-    agents, devices,
+    agents, devices: live,
   };
 }
