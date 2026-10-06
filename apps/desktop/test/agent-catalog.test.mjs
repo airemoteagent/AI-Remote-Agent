@@ -2,7 +2,7 @@
 // temp dir: this test must never touch the real skill config or credentials.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir, hostname } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,7 +12,7 @@ process.env.REMOTE_AGENT_HOME = join(ROOT, '.remote-agent');
 process.env.REMOTE_SKILLS_DIR = join(ROOT, '.remote-agent', 'skills');
 mkdirSync(process.env.REMOTE_SKILLS_DIR, { recursive: true });
 
-const { listAgents, startAgent, stopAgent, head, catalog, daemonPid, listModels, policyPosture, probeDevice, probeDevices, deviceAction, devicesWithLiveness } = await import('../src/agent-catalog.js');
+const { listAgents, startAgent, stopAgent, head, catalog, daemonPid, listModels, policyPosture, probeDevice, probeDevices, deviceAction, devicesWithLiveness, activityLog } = await import('../src/agent-catalog.js');
 
 const found = (list, id) => list.find((a) => a.id === id);
 
@@ -98,6 +98,32 @@ describe('agent-catalog', () => {
     assert.match(r.message, /policy/);
     writeFileSync(policyPath, JSON.stringify({ audit: false, tools: { fleet: 'allow' } }));
     assert.equal(startAgent('skill:disk-health').ok, true, 'allow tier runs again');
+  });
+
+  test('the activity log reads the audit tail, newest first', async () => {
+    const { auditWrite } = await import('@remote-agent/engine');
+    const log = join(process.env.REMOTE_AGENT_HOME, 'audit.jsonl');
+    for (const tool of ['shell', 'files', 'net']) auditWrite({ kind: 'tool', tool, verdict: 'allow' }, log);
+    const out = activityLog(3);
+    assert.equal(out.length, 3);
+    assert.deepEqual(out.map((a) => a.what), ['net', 'files', 'shell'], 'newest first');
+    assert.equal(out[0].verdict, 'allow');
+    assert.equal(out[0].kind, 'tool');
+    // a large head must not stop the tail read (only the last 128 KB is parsed)
+    writeFileSync(log, `${'#'.repeat(300_000)}\n`, { flag: 'a' });
+    for (const tool of ['jobs']) auditWrite({ kind: 'tool', tool, verdict: 'deny', reason: 'probe' }, log);
+    const tail = activityLog(1);
+    assert.equal(tail[0].what, 'jobs');
+    assert.equal(tail[0].reason, 'probe');
+  });
+
+  test('reading the policy posture does not write to the audit log', async () => {
+    const { auditWrite } = await import('@remote-agent/engine');
+    const log = join(process.env.REMOTE_AGENT_HOME, 'audit.jsonl');
+    const before = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean).length : 0;
+    for (let i = 0; i < 5; i++) policyPosture();
+    const after = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean).length : 0;
+    assert.equal(after, before, 'the dashboard asks every tick; the posture must not be audited');
   });
 
   test('a device is online only if something answers on its port', async () => {

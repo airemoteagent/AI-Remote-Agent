@@ -52,6 +52,7 @@
       <div class="row"><button id="gGuard" data-gate="cpuGuard">cpu-guard</button><button id="gPrio" data-gate="priority">priority</button><span class="tiny" id="gateSub"></span></div>
     </div>
   </div>
+  <div class="card"><h2>activity · audited actions <span class="tiny" id="actSub"></span></h2><div class="scroll" id="activity" style="max-height:240px"></div></div>
   <div class="card"><h2>agents <span class="tiny" id="agentSub"></span></h2><div class="scroll" id="agents"></div></div>
   <div class="card"><h2>processes <span class="tiny" id="procSub"></span></h2>
     <div class="row"><input id="q" placeholder="filter cmd / pid…"><label class="tiny"><input type="checkbox" id="burn" checked> burners only (&gt;1%)</label></div>
@@ -89,8 +90,18 @@ function renderRoster(f){
       <td class="${col}">${esc(a.status)}</td><td title="${esc(what)}">${esc(String(what).slice(0,80))}</td><td>${act||'<span class="tiny">—</span>'}</td></tr>`;
   }).join('')+'</table>':'<div class="tiny">nothing matches.</div>';
 }
+function renderActivity(f){
+  const A=f.activity||[];
+  $('#actSub').textContent=A.length?`${A.length} most recent · newest first`:'none yet';
+  $('#activity').innerHTML=A.length?'<table><tr><th>when</th><th>seq</th><th>kind</th><th>what</th><th>verdict</th></tr>'+
+    A.map(a=>`<tr><td class="tiny">${a.at?new Date(a.at).toISOString().slice(11,19):'—'}</td>
+      <td class="tiny">${a.seq??'—'}</td><td><span class="cat-tag">${esc(a.kind)}</span></td>
+      <td>${esc(a.what)}${a.pid?` <span class="tiny">pid ${a.pid}</span>`:''}${a.reason?` <span class="tiny" title="${esc(a.reason)}">· ${esc(String(a.reason).slice(0,50))}</span>`:''}</td>
+      <td class="${a.verdict==='allow'||a.verdict===true?'ok':a.verdict?'warn':'tiny'}">${esc(a.verdict??'')}</td></tr>`).join('')+'</table>'
+    :'<div class="tiny">no audit entries on this device yet.</div>';
+}
 function render(f){F=f;document.body.classList.toggle('stale',Date.now()-last>6000);
- renderHead(f);renderRoster(f);
+ renderHead(f);renderRoster(f);renderActivity(f);
  const d=f.device||{},b=f.budget||{},tot=Object.values(b).reduce((a,x)=>a+x,0)||1;
  $('#meta').textContent=(d.host||'?')+' · '+(d.cores||'?')+' cores · '+(d.platform||'')+' · :'+f.port;
  $('#modeChip').textContent='MODE · '+((f.gate&&f.gate.mode)||'balanced');
@@ -100,10 +111,8 @@ function render(f){F=f;document.body.classList.toggle('stale',Date.now()-last>60
  $('#legend').innerHTML=Object.entries(CO).map(([k,col])=>`<span><i class="sw" style="background:${col}"></i>${k} <b>${(b[k]||0).toFixed(0)}%</b></span>`).join('');
  const g=f.gate||{};$('#gGuard').textContent=g.cpuGuard?'cpu-guard ARMED':'cpu-guard OFF';$('#gGuard').className=g.cpuGuard?'good':'danger';
  $('#gPrio').textContent=g.priority?'priority ARMED':'priority OFF';$('#gPrio').className=g.priority?'good':'danger';
- const D=f.devices||[];$('#devSub').textContent=D.filter(x=>x.online===true).length+'/'+D.length+' online';
- $('#devices').innerHTML='<table><tr><th>id</th><th>role</th><th>host</th><th>plat</th><th class="num">cores</th><th class="num">busy</th><th class="num">agents</th><th>state</th><th>govern</th></tr>'+D.map(x=>`<tr><td>${esc(x.id||x.host||'?')}</td><td class="tiny">${esc(x.role||'peer')}</td><td class="tiny">${esc(x.host||'')}</td><td class="tiny">${esc(x.platform||'')}</td><td class="num">${x.cores??'-'}</td><td class="num">${x.busy!=null?x.busy+'%':'-'}</td><td class="num">${x.agents??'-'}</td><td class="${x.online===true?'ok':x.online===false?'bad':'tiny'}" title="${esc(x.probe||'')}">${x.online===true?'online':x.online===false?'offline':'probing…'}</td><td>${(x.actions||[]).map(a=>a==='probe'?`<button onclick="dev('${esc(x.id)}','probe')">probe</button>`:a==='resume-agents'?`<button class="good" onclick="dev('${esc(x.id)}','resume-agents')">▶ agents</button>`:`<button onclick="dev('${esc(x.id)}','pause-agents')">⏸ agents</button>`).join(' ')}</td></tr>`).join('')+'</table>';
- const ag=f.agents||[];$('#agentSub').textContent=ag.length+' live';
- $('#agents').innerHTML=ag.length?'<table><tr><th>pid</th><th>cpu</th><th>mem</th><th>cat</th><th>cmd</th><th></th></tr>'+ag.map(p=>`<tr><td>${p.pid}</td><td class="num">${p.cpu.toFixed(1)}</td><td class="num">${p.mb}M</td><td><span class="cat-tag">${p.category}</span></td><td>${esc(p.cmd)}</td><td>${p.protected?'<span class="tiny">protected</span>':(p.paused?`<button class="good" onclick="act('resume',{pid:${p.pid}})">▶</button>`:`<button onclick="act('pause',{pid:${p.pid}})">⏸</button>`)}</td></tr>`).join('')+'</table>':'<div class="tiny">no agent processes.</div>';
+ const D=f.devices||[];$('#devSub').textContent=D.filter(x=>x.online===true).length+'/'+D.length+' online'; $('#devices').innerHTML='<table><tr><th>id</th><th>role</th><th>host</th><th>plat</th><th class="num">cores</th><th class="num">busy</th><th class="num">agents</th><th>state</th><th>govern</th></tr>'+D.map(x=>`<tr><td>${esc(x.id||x.host||'?')}</td><td class="tiny">${esc(x.role||'peer')}</td><td class="tiny">${esc(x.host||'')}</td><td class="tiny">${esc(x.platform||'')}</td><td class="num">${x.cores??'-'}</td><td class="num">${x.busy!=null?x.busy+'%':'-'}</td><td class="num">${x.agents??'-'}</td><td class="${x.online===true?'ok':x.online===false?'bad':'tiny'}" title="${esc(x.probe||'')}">${x.online===true?'online':x.online===false?'offline':'probing…'}</td><td>${(x.actions||[]).map(a=>a==='probe'?`<button onclick="dev('${esc(x.id)}','probe')">probe</button>`:a==='resume-agents'?`<button class="good" onclick="dev('${esc(x.id)}','resume-agents')">▶ agents</button>`:`<button onclick="dev('${esc(x.id)}','pause-agents')">⏸ agents</button>`).join(' ')}</td></tr>`).join('')+'</table>';
+ const ag=f.agents||[];$('#agentSub').textContent=ag.length+' live'; $('#agents').innerHTML=ag.length?'<table><tr><th>pid</th><th>cpu</th><th>mem</th><th>cat</th><th>cmd</th><th></th></tr>'+ag.map(p=>`<tr><td>${p.pid}</td><td class="num">${p.cpu.toFixed(1)}</td><td class="num">${p.mb}M</td><td><span class="cat-tag">${p.category}</span></td><td>${esc(p.cmd)}</td><td>${p.protected?'<span class="tiny">protected</span>':(p.paused?`<button class="good" onclick="act('resume',{pid:${p.pid}})">▶</button>`:`<button onclick="act('pause',{pid:${p.pid}})">⏸</button>`)}</td></tr>`).join('')+'</table>':'<div class="tiny">no agent processes.</div>';
  const q=($('#q').value||'').toLowerCase(),bo=$('#burn').checked;const list=(f.procs||[]).filter(p=>(!bo||p.cpu>=1||p.mb>=400||p.paused)&&(!q||(p.cmd+' '+p.pid).toLowerCase().includes(q)));
  $('#procSub').textContent=list.length+' shown';$('#procs').innerHTML='<table><tr><th>pid</th><th>cpu</th><th>mem</th><th>nice</th><th>cat</th><th>cmd</th><th></th></tr>'+list.map(p=>`<tr><td>${p.pid}</td><td class="num">${p.cpu.toFixed(1)}</td><td class="num">${p.mb}M</td><td class="num">${p.nice}</td><td><span class="cat-tag">${p.category}</span></td><td title="${esc(p.args)}">${esc(p.cmd)}</td><td>${p.protected?'<span class="tiny">protected</span>':(p.paused?`<button class="good" onclick="act('resume',{pid:${p.pid}})">▶</button>`:`<button onclick="act('pause',{pid:${p.pid}})">⏸</button>`)+`<button onclick="ren(${p.pid},${p.nice})">⤓</button><button class="danger" onclick="kil(${p.pid})">✕</button>`}</td></tr>`).join('')+'</table>';
  last=Date.now();}

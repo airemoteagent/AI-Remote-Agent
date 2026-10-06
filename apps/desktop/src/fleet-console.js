@@ -55,6 +55,7 @@ export function snapshot() {
     at: Date.now(), console: 'fleet', port: PORT,
     device: self, devices: cat.devices, head: cat.head, counts: cat.counts, catalog: cat.agents,
     policy: cat.policy, audit: cat.audit, models: cat.models, modelsError: cat.modelsError,
+    activity: cat.activity ?? [],
     busy: c.busy, budget: c.budget, groups: c.groups,
     agents, procs: c.rows.slice(0, 250),
     load: sampler.readLoad(), swap: sampler.readSwap(),

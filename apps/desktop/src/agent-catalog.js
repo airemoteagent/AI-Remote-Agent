@@ -12,7 +12,7 @@
 //   stopAgent(id)           → stop it (skill disable, SIGTERM via the sampler)
 //   head({agents,devices})  → the head posture (linked | offline) + roster size
 //   catalog({running,devices}) → { at, head, counts, agents, devices }
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, openSync, closeSync, readSync, fstatSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { homedir, hostname } from 'node:os';
@@ -134,18 +134,54 @@ export function listModels() {
   return { error, models: out, anyConfigured: out.some((m) => m.configured) || Boolean(loadCreds()?.apiKey) };
 }
 
-/** What policy is actually in force here — the console shows it instead of asserting it. */
+/** What policy is actually in force here — the console shows it instead of asserting it.
+ *  Measured: asking the live policy about itself via check() writes an audit entry,
+ *  and the dashboard asks every tick — ~43k junk entries a day. So the posture is
+ *  read from a copy with auditing off: same decision logic, no log spam. */
 export function policyPosture() {
   let p = null;
   try { p = Policy.load(); } catch { /* unreadable policy reads as unknown */ }
   if (!p) return { source: 'unreadable', fleetTier: 'deny', audit: false };
-  const v = p.check('fleet', { action: 'inspect' });
+  const probe = p.auditEnabled ? new Policy({ ...p.raw, audit: false }) : p;
+  const v = probe.check('fleet', { action: 'inspect' });
   return {
     source: p.raw && Object.keys(p.raw).length ? 'policy file' : 'built-in defaults',
     fleetTier: p.toolTier?.('fleet') ?? (v.allowed ? 'allow' : v.tier),
     audit: p.auditEnabled !== false, auditPath: p.auditPath ?? null,
     maxSteps: p.maxSteps ?? null, dailyTokens: p.dailyTokens ?? null,
   };
+}
+
+/** The last things that actually happened on this device: every audited action,
+ *  newest first — the runtime's own "what is doing what" (the DSH side has its
+ *  own transcript feed on the :3099 dashboard). Tail read, never the whole log. */
+export function activityLog(limit = 40) {
+  const path = policyPosture().auditPath;
+  if (!path || !existsSync(path)) return [];
+  try {
+    const fd = openSync(path, 'r');
+    let text;
+    try {
+      const size = fstatSync(fd).size;
+      const len = Math.min(size, 131072);
+      const buf = Buffer.alloc(len);
+      readSync(fd, buf, 0, len, size - len);
+      text = buf.toString('utf8');
+    } finally { closeSync(fd); }
+    const out = [];
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const r = JSON.parse(line);
+        out.push({
+          at: r.ts ? Date.parse(r.ts) : null, seq: r.seq ?? null, kind: r.kind ?? 'audit',
+          what: r.tool ?? r.action ?? r.sid ?? '—', verdict: r.verdict ?? (r.refused ? 'refused' : r.ok === false ? 'failed' : null),
+          reason: r.reason ?? r.why ?? null, pid: r.pid ?? null,
+        });
+      } catch { /* partial first line of the window */ }
+    }
+    return out.slice(-limit).reverse();
+  } catch { return []; }
 }
 
 /** Every run/stop passes the policy gate — a deny is reported, never silently ignored. */
@@ -302,6 +338,7 @@ export function catalog({ running = [], devices = [] } = {}) {
     head: head({ agents: agents.filter((a) => a.kind !== 'skill').length, devices: live.length }),
     policy: policyPosture(),
     audit: auditPosture(),
+    activity: activityLog(40),
     models: llms.models, modelsError: llms.error, anyModelConfigured: llms.anyConfigured,
     counts: {
       all: agents.length,
