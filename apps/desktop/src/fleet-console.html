@@ -249,6 +249,8 @@ canvas{background:var(--panel2);border:1px solid var(--line);border-radius:var(-
     <h1>remoteagent · control plane</h1>
     <span class="live"><span class="dot"></span>live</span>
     <span class="chip" id="modeChip">…</span>
+    <span class="spacer"></span>
+    <button id="themeToggle" title="day / night mode (persisted; follows your system first)">◐ theme</button>
     <span class="meta" id="meta">…</span>
   </header>
 
@@ -634,7 +636,8 @@ async function pg(dry){
     .filter(([,x])=>x!=null&&x!=='').map(([k,x])=>`<div class="k">${esc(k)}</div><div class="${x===false||x==='deny'?'bad':''}">${esc(String(x))}</div>`).join('');
   $('#pgOut').textContent=r.result?JSON.stringify(r.result,null,1).slice(0,4000):(r.message||'');
 }
-$('#themeToggle').onclick=()=>{const n=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';localStorage.setItem(THEME_KEY,n);applyTheme(n);};
+const themeBtn=$('#themeToggle');
+if(themeBtn) themeBtn.onclick=()=>{const n=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';localStorage.setItem(THEME_KEY,n);applyTheme(n);};
 $('#pgDry').onclick=()=>pg(true);$('#pgRun').onclick=()=>pg(false);
 
 async function run(id){const r=await api('agents/run',{id});if(!r.ok)alert(r.message||'refused by policy');await refresh();}
