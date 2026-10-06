@@ -12,7 +12,7 @@ process.env.REMOTE_AGENT_HOME = join(ROOT, '.remote-agent');
 process.env.REMOTE_SKILLS_DIR = join(ROOT, '.remote-agent', 'skills');
 mkdirSync(process.env.REMOTE_SKILLS_DIR, { recursive: true });
 
-const { listAgents, startAgent, stopAgent, head, catalog, daemonPid, listModels, policyPosture, probeDevice, probeDevices, deviceAction, devicesWithLiveness, activityLog } = await import('../src/agent-catalog.js');
+const { listAgents, startAgent, stopAgent, head, catalog, daemonPid, listModels, policyPosture, probeDevice, probeDevices, deviceAction, devicesWithLiveness, activityLog, detectAgents } = await import('../src/agent-catalog.js');
 
 const found = (list, id) => list.find((a) => a.id === id);
 
@@ -124,6 +124,59 @@ describe('agent-catalog', () => {
     for (let i = 0; i < 5; i++) policyPosture();
     const after = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean).length : 0;
     assert.equal(after, before, 'the dashboard asks every tick; the posture must not be audited');
+  });
+
+  test('detection finds every sort of agent, and does not cry wolf', () => {
+    const table = [
+      ['node', 'node /usr/local/bin/claude --resume', 1],
+      ['python3', 'python3 -m aider --model gpt-4o', 2],
+      ['codex', 'codex exec "fix tests"', 3],
+      ['node', 'node /opt/homebrew/bin/goose session', 4],
+      ['ollama', 'ollama serve', 5],
+      ['node', 'node /usr/lib/mcp-server-filesystem', 6],
+      ['node', 'node /usr/lib/n8n start', 7],
+      ['bash', 'bash -c grep -rn claude /tmp', 8],   // a shell that mentions an agent is not one
+      ['mysqld', '/usr/local/mysql/bin/mysqld', 9],
+      ['node', 'node server.js', 10],
+      ['python3', 'python3 -c import os', 11],
+      ['node', 'node -e console.log("agent")', 12],   // a one-liner is not an agent
+    ].map(([comm, args, pid]) => ({ pid, comm, args, rssMB: 50, user: 'me' }));
+    const found = detectAgents(table);
+    const by = Object.fromEntries(found.agents.map((a) => [a.pid, a.by]));
+    assert.equal(found.scanned, 12);
+    for (const pid of [1, 2, 3, 4, 5, 6, 7]) assert.ok(by[pid], `pid ${pid} should be detected`);
+    for (const pid of [8, 9, 10, 11, 12]) assert.equal(by[pid], undefined, `pid ${pid} must not be claimed as an agent`);
+    assert.equal(found.agents.find((a) => a.pid === 1).confidence, 'known');
+    assert.equal(by[2], 'signature:aider');
+    assert.equal(by[6], 'signature:mcp-server');
+    assert.equal(by[7], 'signature:agent-platform');
+  });
+
+  test('the registry makes agents you run yourself detectable', () => {
+    const reg = join(process.env.REMOTE_AGENT_HOME, 'agents.json');
+    writeFileSync(reg, JSON.stringify({ agents: [
+      { id: 'my-bot', name: 'My Bot', match: 'my-bot\\.py' },
+      { id: 'edge-1', name: 'Edge One', host: '10.0.0.9', port: 3095, role: 'edge' },
+    ] }));
+    const found = detectAgents([
+      { pid: 42, comm: 'python3', args: 'python3 /srv/my-bot.py --serve', rssMB: 30, user: 'me' },
+      { pid: 43, comm: 'node', args: 'node server.js', rssMB: 30, user: 'me' },
+    ]);
+    const custom = found.agents.find((a) => a.by === 'registry:my-bot');
+    assert.ok(custom, 'a registry match is a known agent');
+    assert.equal(custom.pid, 42);
+    assert.equal(found.agents.some((a) => a.pid === 43), false);
+    assert.deepEqual(found.external.map((e) => e.id), ['edge-1'], 'a registered host that is not a local process still shows up');
+    assert.deepEqual(found.external[0].actions, ['probe']);
+    writeFileSync(reg, JSON.stringify({ agents: [] }));
+  });
+
+  test('an idle agent is still an agent (the census threshold must not hide it)', () => {
+    // The census only keeps rows above a cpu/memory threshold; detection reads the
+    // full process table, so a 0 %-cpu agent that has not been scheduled still shows.
+    const found = detectAgents([{ pid: 77, comm: 'node', args: 'node /opt/homebrew/bin/goose session', cpu: 0, rssMB: 12, user: 'me' }]);
+    assert.equal(found.agents.length, 1);
+    assert.equal(found.agents[0].pid, 77);
   });
 
   test('a device is online only if something answers on its port', async () => {

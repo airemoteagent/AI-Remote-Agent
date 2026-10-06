@@ -75,18 +75,101 @@ function peerAgents() {
   });
 }
 
-function processAgents(running = []) {
-  return running.map((r) => ({
-    id: `proc:${r.pid}`, name: r.cmd || `pid ${r.pid}`, kind: 'process', role: 'running',
-    status: sampler.paused?.has?.(Number(r.pid)) ? 'paused' : 'running',
-    pid: r.pid, cpu: r.cpu ?? 0, mb: r.mb ?? 0,
-    // What it is doing right now: the census already carries the command line.
-    activity: String(r.args ?? '').slice(0, 160) || null,
-    actions: ['stop'],
-  }));
+// --- agent detection -------------------------------------------------------
+// Detection is EVIDENCE, not a name list baked into the engine. A process is an
+// agent because (a) it matches a known agent signature, (b) it matches an entry in
+// your own registry file, or (c) a conservative heuristic fired — and (c) is
+// labelled "possible" instead of being asserted as fact.
+//
+// Two measured traps this avoids:
+//   * the census only keeps processes above a cpu/memory threshold, so an IDLE
+//     agent (0 % cpu) was invisible; detection scans the full process table.
+//   * a shell that merely MENTIONS an agent (`bash -c grep claude`) is not one, so
+//     signature matching skips shells and looks at comm + the first tokens only.
+const SHELLS = new Set(['bash', 'sh', 'zsh', '-zsh', 'dash', 'fish', 'csh', 'tcsh', 'ksh']);
+const SIGNATURES = [
+  [/@deepseek-ai\/dsh|dsh\/lib\/bin\.js|\.dsh\/profiles\/.*bin\.js|\bdsh web\b/, 'dsh'],
+  [/openclaw/i, 'openclaw'],
+  [/remote-agent\b.*(start|daemon|fleet|focus)|(^|\/)remote-agent\.js\b/, 'remote-agent'],
+  [/@anthropic-ai\/claude-code|\bclaude(-code)?\b/i, 'claude-code'],
+  [/@openai\/codex|\bcodex\b/i, 'codex'],
+  [/\baider\b/i, 'aider'],
+  [/\bgoose\b/i, 'goose'],
+  [/\bopencode\b/i, 'opencode'],
+  [/gemini-cli|@google\/gemini/i, 'gemini-cli'],
+  [/cursor-agent|@cursor\//i, 'cursor-agent'],
+  [/\bcline\b|\bcontinue-dev\b|@continuedev/i, 'cline/continue'],
+  [/ollama (run|serve)|lms\b|lm-?studio/i, 'local-llm'],
+  [/\bautogen\b|autogenstudio/i, 'autogen'],
+  [/\bcrewai\b/i, 'crewai'],
+  [/\blanggraph\b|langserve/i, 'langgraph'],
+  [/mcp-server|@modelcontextprotocol|mcp\b[^\n]*\bserve\b/i, 'mcp-server'],
+  [/swe-?agent|openhands|devika|gpt-engineer|smol-developer/i, 'coding-agent'],
+  [/browser-use|browser_use|stagehand|skyvern/i, 'browser-agent'],
+  [/\bn8n\b|\bdify\b|flowise/i, 'agent-platform'],
+  [/autogpt|auto-gpt|babyagi|agent-zero|\bletta\b|memgpt|\beliza\b/i, 'autonomous-agent'],
+];
+const POSSIBLE = /(agent|assistant|\bllm\b|\bgpt\b|\bchat\b)/i;
+const RUNTIMES = new Set(['node', 'python', 'python3', 'bun', 'deno', 'ruby', 'java']);
+const REGISTRY_FILE = 'agents.json'; // ~/.remote-agent/agents.json — your own agents
+
+function registryEntries() {
+  try {
+    const j = JSON.parse(readFileSync(join(HOME, REGISTRY_FILE), 'utf8'));
+    const list = Array.isArray(j) ? j : (Array.isArray(j.agents) ? j.agents : []);
+    return list.filter((e) => e && (e.match || e.id)).map((e) => ({ ...e, re: e.match ? new RegExp(e.match, 'i') : null }));
+  } catch { return []; }
 }
 
-/** The whole roster: skills + daemon + peers + live processes. */
+/** Detect agents in a process table. `scan` is the raw ps map/list from the sampler. */
+export function detectAgents(scan = sampler.readProcs()) {
+  const rows = Array.isArray(scan) ? scan : [...scan.values()];
+  const custom = registryEntries();
+  const out = [];
+  for (const r of rows) {
+    const comm = String(r.comm ?? '').split('/').pop();
+    const args = String(r.args ?? '');
+    const head = args.split(' ').slice(0, 3).join(' ');
+    const hit = (() => {
+      for (const e of custom) if (e.re && e.re.test(args)) return { by: `registry:${e.id ?? e.name ?? 'agent'}`, confidence: 'known' };
+      if (SHELLS.has(comm)) return null; // a shell that mentions an agent is not one
+      const target = `${comm} ${head}`;
+      for (const [re, id] of SIGNATURES) if (re.test(target)) return { by: `signature:${id}`, confidence: 'known' };
+      if (RUNTIMES.has(comm) && / -e | --eval /.test(args)) return null; // a one-liner is not an agent
+      if (RUNTIMES.has(comm) && POSSIBLE.test(args)) return { by: 'heuristic:agent-ish runtime', confidence: 'possible' };
+      return null;
+    })();
+    if (hit) out.push({ ...hit, pid: r.pid, name: comm || `pid ${r.pid}`, args, mb: r.rssMB ?? 0, user: r.user });
+  }
+  // Registry entries that are not local processes: a remote or not-yet-started agent.
+  const external = custom
+    .filter((e) => !out.some((o) => o.by === `registry:${e.id ?? e.name ?? 'agent'}`))
+    .map((e) => ({ id: e.id ?? e.name, name: e.name ?? e.id, kind: 'external', role: e.role ?? 'registered',
+      host: e.host ?? null, port: e.port ?? null, note: e.note ?? null, confidence: 'known', actions: e.host ? ['probe'] : [] }));
+  return { agents: out, external, scanned: rows.length, custom: custom.length };
+}
+
+function processAgents(running = []) {
+  const live = new Map(running.map((r) => [Number(r.pid), r]));
+  const { agents, external, scanned, custom } = detectAgents();
+  const local = agents.map((a) => {
+    const c = live.get(Number(a.pid));
+    return {
+      id: `proc:${a.pid}`, name: a.name || `pid ${a.pid}`, kind: 'process',
+      role: a.confidence === 'known' ? 'agent process' : 'possible agent',
+      status: sampler.paused?.has?.(Number(a.pid)) ? 'paused' : 'running',
+      pid: a.pid, cpu: c?.cpu ?? 0, mb: c?.mb ?? a.mb,
+      match: a.by, confidence: a.confidence, user: a.user,
+      // What it is doing right now: the command line, trimmed.
+      activity: String(a.args ?? '').slice(0, 160) || null,
+      actions: ['stop'],
+    };
+  });
+  processAgents.scan = { scanned, matched: agents.length, custom };
+  return [...local, ...external.map((e) => ({ ...e, confidence: 'known' }))];
+}
+
+/** The whole roster: skills + daemon + peers + every agent process we can prove. */
 export function listAgents({ running = [] } = {}) {
   const pid = daemonPid();
   const daemon = {
@@ -345,6 +428,9 @@ export function catalog({ running = [], devices = [] } = {}) {
       running: agents.filter((a) => a.status === 'running' || a.status === 'paused').length,
       skills: agents.filter((a) => a.kind === 'skill').length,
       enabled: agents.filter((a) => a.status === 'enabled').length,
+      detected: agents.filter((a) => a.kind === 'process' || a.kind === 'external').length,
+      possible: agents.filter((a) => a.confidence === 'possible').length,
+      scanned: processAgents.scan?.scanned ?? null,
       devices: live.length,
       devicesOnline: live.filter((d) => d.online === true).length,
     },

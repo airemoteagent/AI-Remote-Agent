@@ -68,6 +68,7 @@ function renderHead(f){
     ? `<span class="ok">linked</span> · ${esc(h.url||'')} · ${esc(h.platform||'')}`
     : `<span class="warn">no key</span> · ${esc(h.note||'')}`;
   $('#headCounts').innerHTML=[['agents',`${c.running??0}/${c.all??0}`],['skills on',`${c.enabled??0}/${c.skills??0}`],
+    ['detected',`${c.detected??0}${c.possible?` (+${c.possible}?)`:''}`],['scanned',c.scanned??'—'],
     ['devices',`${c.devicesOnline??0}/${c.devices??0} online`],['llms',`${m.filter(x=>x.configured).length}/${m.length}`]]
     .map(([k,v])=>`<span class="chip">${k} <b>${v}</b></span>`).join('');
   $('#glass').innerHTML=[['policy',esc(p.source||'—')],
@@ -86,8 +87,9 @@ function renderRoster(f){
     const act=(a.actions||[]).map(x=>['start','enable','install'].includes(x)
       ? `<button class="good" onclick="run('${esc(a.id)}')">${x==='install'?'install':x}</button>`
       : `<button class="danger" onclick="stop('${esc(a.id)}')">${x==='disable'?'disable':'stop'}</button>`).join(' ');
+    const conf=a.confidence==='possible'?' <span class="cat-tag" title="heuristic — not proven">possible</span>':'';
     return `<tr><td><span class="cat-tag">${esc(a.kind)}</span></td><td>${esc(a.name)} <span class="tiny">${esc(a.id)}</span></td>
-      <td class="${col}">${esc(a.status)}</td><td title="${esc(what)}">${esc(String(what).slice(0,80))}</td><td>${act||'<span class="tiny">—</span>'}</td></tr>`;
+      <td class="${col}" title="${esc(a.match||'')}">${esc(a.status)}${conf}</td><td title="${esc(what)}">${esc(String(what).slice(0,80))}</td><td>${act||'<span class="tiny">—</span>'}</td></tr>`;
   }).join('')+'</table>':'<div class="tiny">nothing matches.</div>';
 }
 function renderActivity(f){

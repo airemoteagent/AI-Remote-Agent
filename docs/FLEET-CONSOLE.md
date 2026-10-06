@@ -18,7 +18,43 @@ with live status and the actions it allows:
 | `daemon` | the local agent loop (`~/.remote-agent/daemon.pid`) | running / stopped | start, stop |
 | `skill` | a bundled or installed skill (`apps/desktop/skills`, `~/.remote-agent/skills`) | available / enabled / disabled | install, enable, disable |
 | `peer` | another assistant from `.buddy/agents/*.json` | online / offline (2 h freshness) | — |
-| `process` | a live agent process the sampler sees | running / paused | stop |
+| `process` | any agent process **detected** in the process table | running / paused | stop |
+| `external` | an agent you registered that is not a local process | — | probe |
+
+### How detection works (and what it cannot see)
+
+Detection is evidence, not a name list inside the engine:
+
+1. **Signature** (`match: "signature:<id>"`, confidence `known`) — the process
+   executable + first arguments match a known agent: `dsh`, `openclaw`,
+   `remote-agent`, `claude-code`, `codex`, `aider`, `goose`, `opencode`,
+   `gemini-cli`, `cursor-agent`, `cline/continue`, `local-llm` (ollama/lms),
+   `autogen`, `crewai`, `langgraph`, `mcp-server`, coding agents
+   (swe-agent/openhands/gpt-engineer), browser agents (browser-use/skyvern),
+   agent platforms (n8n/dify), autonomous agents (autogpt/letta/eliza).
+   Matching looks at `comm` + the first three arguments, and **skips shells**, so
+   `bash -c grep claude` is not reported as a Claude session.
+2. **Registry** (`match: "registry:<id>"`, confidence `known`) — your own agents in
+   `~/.remote-agent/agents.json`; no code change needed:
+
+   ```json
+   { "agents": [
+     { "id": "my-bot", "name": "My Bot", "match": "my-bot\\.py" },
+     { "id": "edge-1", "name": "Edge One", "host": "10.0.0.9", "port": 3095, "role": "edge" }
+   ] }
+   ```
+
+   An entry with a `host` becomes an `external` agent with a `probe` action.
+3. **Heuristic** (confidence `possible`) — a `node`/`python`/`bun`/`deno` process
+   whose command line mentions agent/assistant/llm/gpt/chat. It is shown as
+   **possible**, never asserted, and never counted as a detected agent.
+
+Detection reads the **full process table** (`ps -Ao`), not the sampled census: the
+census drops everything below its cpu/memory threshold, which used to hide an idle
+agent (0 % cpu) completely. The console reports `scanned`, `detected` and
+`possible` counts, so a miss is visible as a number rather than silent. Nothing
+here can see an agent that runs in a container, on another host without a registry
+entry, or under a name that matches none of the above.
 
 `POST /agents/run {id}` and `POST /agents/stop {id}` are the only write paths.
 They are **governed**: the head checks the local policy first
