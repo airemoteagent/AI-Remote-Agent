@@ -49,6 +49,29 @@ describe('control plane over http', () => {
     assert.ok(body.audit.checked >= 0, 'audit posture reports a real check');
   });
 
+  test('the one endpoint a website may call answers, and only for our origin', async () => {
+    // remoteagent.online shows whether this console is running on the visitor's
+    // machine. The page must not be handed the control surface to get a status
+    // light, so /ping is read-only and CORS is scoped to a single origin.
+    const allowed = await fetch(`${base}/ping`, { headers: { origin: 'https://remoteagent.online' } });
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.headers.get('access-control-allow-origin'), 'https://remoteagent.online');
+    assert.equal(allowed.headers.get('access-control-allow-private-network'), 'true');
+    const body = await allowed.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.console, 'fleet');
+
+    // any other origin gets the answer, but no permission to read it
+    const other = await fetch(`${base}/ping`, { headers: { origin: 'https://example.com' } });
+    assert.equal(other.status, 200);
+    assert.equal(other.headers.get('access-control-allow-origin'), null);
+
+    // and the preflight carries the private-network grant Chrome demands
+    const pre = await fetch(`${base}/ping`, { method: 'OPTIONS', headers: { origin: 'https://remoteagent.online' } });
+    assert.equal(pre.status, 204);
+    assert.equal(pre.headers.get('access-control-allow-private-network'), 'true');
+  });
+
   test('the roster lists the daemon and the bundled skills', async () => {
     const { status, body } = await j('/agents');
     assert.equal(status, 200);

@@ -27,6 +27,9 @@ import { catalog, listAgents, startAgent, stopAgent, probeDevices, deviceAction,
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.FLEET_PORT || 3095);
+// The one web origin allowed to ask this console whether it is alive (see /ping).
+const SITE_ORIGIN = process.env.REMOTEAGENT_SITE || 'https://remoteagent.online';
+const VERSION = (() => { try { return JSON.parse(readFileSync(join(HERE, '..', '..', '..', 'package.json'), 'utf8')).version; } catch { return null; } })();
 const HOME = process.env.REMOTE_AGENT_HOME || join(os.homedir(), '.remote-agent');
 const FLEET_FILE = join(HOME, 'fleet.json');
 
@@ -220,6 +223,26 @@ export function createFleetServer() {
     try {
       if (url === '/' || url === '/index.html') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); return res.end(readFileSync(join(HERE, 'fleet-console.html'))); }
       if (url === '/events') { res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' }); res.write(`data: ${JSON.stringify(last ?? snapshot())}\n\n`); clients.add(res); req.on('close', () => clients.delete(res)); return; }
+
+      // ── /ping — the only endpoint a website is allowed to call ─────────
+      // remoteagent.online shows whether this console is running on the visitor's
+      // machine. A public page cannot reach loopback without CORS *and* Chrome's
+      // Private Network Access header, and it must not be handed the control
+      // surface to get a status light: /ping answers "I am here" for one origin,
+      // read-only, and no other endpoint gains a CORS header from this.
+      if (url === '/ping') {
+        const origin = req.headers.origin;
+        const base = { 'vary': 'origin', 'access-control-allow-private-network': 'true' };
+        if (origin === SITE_ORIGIN) base['access-control-allow-origin'] = SITE_ORIGIN;
+        if (req.method === 'OPTIONS') {
+          base['access-control-allow-methods'] = 'GET, OPTIONS';
+          base['access-control-allow-headers'] = 'content-type';
+          base['access-control-max-age'] = '600';
+          res.writeHead(204, base); return res.end();
+        }
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store', ...base });
+        return res.end(JSON.stringify({ ok: true, console: 'fleet', port: PORT, version: VERSION }));
+      }
       if (url === '/status' || url === '/overview') return json(res, 200, last ?? snapshot());
       if (url === '/agents') { const s = last ?? snapshot(); return json(res, 200, { head: s.head, agents: listAgents({ running: s.agents }) }); }
       if (url === '/agents/run' && req.method === 'POST') { const b = await body(req); return json(res, 200, b.id ? startAgent(String(b.id)) : { ok: false, message: 'need id' }); }
