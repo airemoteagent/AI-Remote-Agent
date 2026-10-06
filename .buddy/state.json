@@ -1,0 +1,32 @@
+{
+  "protocol": "TwoAIBuddy",
+  "version": "1.0",
+  "workspace": "/Users/mona/Documents/fullremoteagent",
+  "agents": {
+    "openclaw": {
+      "role": "author",
+      "status": "idle",
+      "task": "focus subsystem — hand over to review",
+      "files": [],
+      "lastSeen": "2026-10-06T11:49:00Z",
+      "lastCommit": "unknown",
+      "tests": "unknown"
+    },
+    "dsh": {
+      "role": "reviewer",
+      "status": "offline",
+      "task": "",
+      "files": [],
+      "lastSeen": null,
+      "lastCommit": null,
+      "tests": "unknown"
+    }
+  },
+  "tasks": [
+    { "id": "seed-1", "title": "Run new tests, record green/red", "author": "dsh", "reviewer": "openclaw", "status": "next" },
+    { "id": "seed-2", "title": "Verify focus --snapshot census", "author": "dsh", "reviewer": "openclaw", "status": "next" },
+    { "id": "seed-3", "title": "Fix any red tests from the focus build", "author": "openclaw", "reviewer": "dsh", "status": "next" }
+  ],
+  "locks": {},
+  "notes": "Each agent edits only its own agent section + its own tasks. Locks are advisory, TTL 30 min."
+}

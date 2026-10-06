@@ -1,0 +1,12 @@
+{
+  "agent": "openclaw",
+  "role": "author",
+  "status": "idle",
+  "task": "focus subsystem — handed to review",
+  "files": [],
+  "branch": "main",
+  "lastSeen": "2026-10-06T11:49:00Z",
+  "lastCommit": "unknown",
+  "tests": "unknown",
+  "note": "OpenClaw assistant. Operates from /Users/mona/.openclaw/workspaceNWEO02; the shared surface is this repo. See TWO-AI-BUDDY.md."
+}

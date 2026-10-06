@@ -28,6 +28,14 @@ local model. The model is a detail; the safety and transparency are the product.
 | `packages/engine/src/delegate.js` · `goal.js` · `workflow.js` | Sub-agents, goals, pipelines |
 | `packages/protocol/` | Wire protocol |
 
+## Two-AI-buddy protocol (agents working in pairs)
+
+`TWO-AI-BUDDY.md` is the work policy when two agents (e.g. `openclaw` + `dsh`) share
+this repo: roles, the shared contract in `.buddy/` (blackboard, journal, state,
+locks, inbox, reviews), the plan→build→test→review→land loop, mutual monitoring,
+conflict resolution, and the merge rule for competing policies. **Read it before
+your first change to a shared task**, and use the artefacts it defines.
+
 ## Read order for a task
 
 1. The module the task touches (from the map above).

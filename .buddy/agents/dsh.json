@@ -1,0 +1,12 @@
+{
+  "agent": "dsh",
+  "role": "reviewer",
+  "status": "offline",
+  "task": "",
+  "files": [],
+  "branch": "main",
+  "lastSeen": null,
+  "lastCommit": null,
+  "tests": "unknown",
+  "note": "DeepSeek Harness agent. On launch: read TWO-AI-BUDDY.md, tail .buddy/journal.md, write your own policy to .buddy/policies/dsh.md, then reconcile per §9."
+}
