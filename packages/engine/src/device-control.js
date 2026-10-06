@@ -25,8 +25,11 @@ export function classifyProcess(args = '') {
   if (/@deepseek-ai\/dsh|dsh\/lib\/bin\.js|\bdsh web\b|\.dsh\/profiles\/.*bin\.js/.test(a)) return 'agent';
   if (/openclaw/.test(a)) return 'openclaw';
   if (/(chromium|chrome|playwright|ms-playwright)/i.test(a) && /headless|--type=|--user-data-dir=|remote-debugging/i.test(a)) return 'agent';
-  // User-facing browsers vs the OS.
-  if (/WebKit.*\/(WebContent|GPU|Networking|Plugin)\.xpc/.test(a)) return 'browser';
+  // User-facing browsers vs the OS. macOS names these services
+  // `com.apple.WebKit.WebContent.xpc` — the segment before the xpc name is the
+  // bundle prefix, not a path separator, so requiring `/WebContent.xpc` matched
+  // nothing and every WebKit renderer was filed under `system`.
+  if (/WebKit\.(WebContent|GPU|Networking|Plugin)\.xpc|WebKit.*\/(WebContent|GPU|Networking|Plugin)\.xpc/.test(a)) return 'browser';
   if (/\/Applications\//.test(a) || /(^|\/)(Safari|Terminal|iTerm|Code|Electron)/.test(a)) return 'apps';
   if (/WindowServer|loginwindow|Dock|Finder|SystemUIServer|WindowManager/.test(a)) return 'system';
   if (/^\/(System|usr\/(libexec|sbin|lib|bin)|sbin)\//.test(a)) return 'system';

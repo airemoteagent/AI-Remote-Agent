@@ -118,7 +118,11 @@ export function killPid(pid, signal = 'SIGTERM') {
 /** Execute a declarative mode plan from device-control. */
 export function applyMode(mode, census) {
   const plan = planMode(mode, { rows: census?.rows ?? [], paused: paused.keys() });
-  if (plan.error) return { ok: false, message: plan.error };
+  // `error` as well as `message`: the tool contract reports failures as `error`, the
+  // HTTP surfaces (/mode in the fleet console and focus) read `message`. Dropping one
+  // of them is how a rejected mode looked like a success to whichever caller guessed
+  // wrong — device.run({action:'mode',mode:'bogus'}) returned no error at all.
+  if (plan.error) return { ok: false, error: plan.error, message: plan.error };
   if (plan.gate) setGate({ ...plan.gate, mode });
   else setGate({ mode });
   const out = { ok: true, mode, note: plan.note, paused: [], resumed: [] };
