@@ -19,7 +19,8 @@ local model. The model is a detail; the safety and transparency are the product.
 | Path | What it is |
 |---|---|
 | `apps/desktop/src/agent.js` | Daemon: the agent loop, model dispatch, tools, audit, verification |
-| `apps/desktop/src/tools/` | Tool registry + every tool (`index.js`, `shell`, `files`, `recall`, …) |
+| `apps/desktop/src/tools/` | Tool registry + every tool (`index.js`, `shell`, `files`, `recall`, `device`, …) |
+| `apps/desktop/src/focus.js` · `device-sampler.js` · `packages/engine/src/device-control.js` | Focus: deep-dive + device control — real CPU census, agent transparency, pause/resume/renice/kill, focus modes. See `docs/FOCUS.md`. |
 | `packages/engine/src/loop.js` | `TaskLoop` — plan→act→reflect, reply parsing, compaction |
 | `packages/engine/src/cortex.js` | Lossless context memory + `compactLossless` (nothing is silently dropped) |
 | `packages/engine/src/policy.js` | Policy-as-code, audit log, shell safety rules |

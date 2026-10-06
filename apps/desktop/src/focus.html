@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>focus · device control</title>
+<style>
+  :root{--agents:#38bdf8;--control:#a78bfa;--apps:#34d399;--browser:#f472b6;--system:#8b9bb4;--other:#64748b;
+    --ink:#e6edf6;--dim:#8b9bb4;--line:rgba(255,255,255,.10);--panel:rgba(255,255,255,.045);--ok:#34d399;--warn:#fbbf24;--bad:#f87171}
+  *{box-sizing:border-box}html,body{margin:0;height:100%}
+  body{background:radial-gradient(1100px 700px at 10% -8%,#12324d 0,transparent 55%),radial-gradient(900px 600px at 92% 2%,#2a1a3d 0,transparent 50%),#070a10;color:var(--ink);font:12.5px/1.45 ui-monospace,Menlo,monospace;padding:16px}
+  .wrap{max-width:1400px;margin:0 auto;display:grid;gap:13px}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;letter-spacing:.16em;text-transform:uppercase}
+  .live{display:inline-flex;align-items:center;gap:7px;color:var(--ok);font-size:10px;letter-spacing:.12em}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}.stale .dot{background:var(--bad)}
+  .chip{font-size:11px;padding:2px 9px;border-radius:99px;border:1px solid var(--line)}
+  .meta{color:var(--dim);font-size:10.5px;margin-left:auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .card h2{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:0 0 9px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+  .stat{background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+  .stat .k{font-size:9.5px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}.stat .v{font-size:16px;margin-top:2px}
+  .bar{display:flex;height:24px;border-radius:7px;overflow:hidden;border:1px solid var(--line)}.bar div{height:100%}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:11px}.sw{width:9px;height:9px;border-radius:2px;display:inline-block}
+  button{background:#182838;color:var(--ink);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px 11px;cursor:pointer;font:inherit;font-size:11.5px}
+  button:hover{background:#23394f}button.pri{background:#14405c;border-color:rgba(56,189,248,.5)}button.good{background:#123a2c}
+  button.danger{background:#4a1d22;border-color:rgba(248,113,113,.5)}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}th{text-align:left;color:var(--dim);font-size:9.5px;text-transform:uppercase;padding:4px 8px 4px 0}
+  td{padding:3px 8px 3px 0;border-top:1px solid rgba(255,255,255,.055);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+  .scroll{max-height:380px;overflow:auto}.num{text-align:right}.tiny{font-size:10px;color:var(--dim)}
+  .banner{display:none;border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.09);color:var(--warn);border-radius:9px;padding:8px 11px;font-size:11.5px}
+  input{background:#0d141f;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 9px;font:inherit}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:5px 0}
+  .cat-tag{font-size:9.5px;padding:1px 6px;border-radius:99px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>focus</h1><span class="live"><span class="dot"></span>live</span>
+    <span class="chip" id="modeChip">…</span><span class="meta" id="meta">…</span>
+  </header>
+  <div id="banner" class="banner"></div>
+  <div class="card"><h2>machine</h2><div class="stats" id="stats"></div></div>
+  <div class="card"><h2>where the cpu goes</h2><div class="bar" id="bar"></div><div class="legend" id="legend"></div></div>
+  <div class="card">
+    <h2>focus control</h2>
+    <div class="row">
+      <button class="pri" data-mode="agents">agents only</button>
+      <button class="good" data-mode="balanced">balanced</button>
+      <button class="danger" data-mode="gaming">gaming</button>
+      <button data-mode="pause">pause agents</button>
+      <button data-mode="resume">resume all</button>
+      <span class="tiny" id="gateSub"></span>
+    </div>
+    <div class="row"><button id="gGuard" data-gate="cpuGuard">cpu-guard</button><button id="gPrio" data-gate="priority">priority</button></div>
+  </div>
+  <div class="card"><h2>agent fleet <span class="tiny" id="agentSub"></span></h2><div class="scroll" id="agents"></div></div>
+  <div class="card"><h2>process deep-dive <span class="tiny" id="procSub"></span></h2>
+    <div class="row"><input id="q" placeholder="filter cmd / pid…"><label class="tiny"><input type="checkbox" id="burn" checked> burners only (&gt;1%)</label></div>
+    <div class="scroll" id="procs"></div>
+    <div class="tiny" style="margin-top:6px">pause = SIGSTOP (frees the core, keeps RAM) · resume = SIGCONT · renice-down works unprivileged; raising needs root · kill frees RAM too.</div>
+  </div>
+</div>
+<script>
+const $=(s)=>document.querySelector(s);const CO={agents:'#38bdf8',control:'#a78bfa',apps:'#34d399',browser:'#f472b6',system:'#8b9bb4',other:'#64748b'};
+let F=null,last=0;
+const api=(p,b)=>fetch('/'+p,{method:b?'POST':'GET',headers:{'content-type':'application/json'},body:b?JSON.stringify(b):undefined}).then(r=>r.json());
+const esc=(s)=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const ago=(ms)=>Math.round((Date.now()-ms)/1000)+'s';
+function render(f){F=f;document.body.classList.toggle('stale',Date.now()-last>6000);const b=f.budget||{},tot=Object.values(b).reduce((a,x)=>a+x,0)||1;
+ $('#meta').textContent=f.host+' · '+(f.cores||'?')+' cores · '+f.platform+' · 127.0.0.1:'+f.port;
+ $('#modeChip').textContent='MODE · '+((f.gate&&f.gate.mode)||'balanced');
+ $('#stats').innerHTML=[['busy',(f.busy||0)+'%',(f.busy||0)>(f.cores||4)*85?'bad':'ok'],['load',((f.load||[])[0]??'-'),''],['swap used',((f.swap&&f.swap.used)||0)+'M',''],['paused',(f.paused||[]).length,''],['procs',(f.procs||[]).length,'']]
+   .map(([k,v,c])=>`<div class="stat"><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`).join('');
+ $('#bar').innerHTML=Object.entries(CO).map(([k,col])=>b[k]>0?`<div style="width:${100*b[k]/tot}%;background:${col}" title="${k}"></div>`:'').join('');
+ $('#legend').innerHTML=Object.entries(CO).map(([k,col])=>`<span><i class="sw" style="background:${col}"></i>${k} <b>${(b[k]||0).toFixed(0)}%</b></span>`).join('');
+ const g=f.gate||{};$('#gGuard').textContent=g.cpuGuard?'cpu-guard ARMED':'cpu-guard OFF';$('#gGuard').className=g.cpuGuard?'good':'danger';
+ $('#gPrio').textContent=g.priority?'priority ARMED':'priority OFF';$('#gPrio').className=g.priority?'good':'danger';
+ const P=f.paused||[];const bn=$('#banner');if(P.length){bn.style.display='block';bn.innerHTML=`⏸ <b>${P.length}</b> process(es) STOPPED. <button class="good" onclick="resumeAll()">resume all</button>`;}else bn.style.display='none';
+ const ag=f.agents||[];$('#agentSub').textContent=ag.length+' live';$('#agents').innerHTML=ag.length?'<table><tr><th>pid</th><th>cpu</th><th>mem</th><th>cat</th><th>cmd</th><th></th></tr>'+ag.map(p=>`<tr><td>${p.pid}</td><td class="num">${p.cpu.toFixed(1)}</td><td class="num">${p.mb}M</td><td><span class="cat-tag">${p.category}</span></td><td>${esc(p.cmd)}</td><td>${p.paused?`<button class="good" onclick="act('resume',{pid:${p.pid}})">▶</button>`:`<button onclick="act('pause',{pid:${p.pid}})">⏸</button>`}</td></tr>`).join('')+'</table>':'<div class="tiny">no agent processes right now.</div>';
+ const q=($('#q').value||'').toLowerCase(),bo=$('#burn').checked;
+ const list=(f.procs||[]).filter(p=>(!bo||p.cpu>=1||p.mb>=400||p.paused)&&(!q||(p.cmd+' '+p.pid).toLowerCase().includes(q)));
+ $('#procSub').textContent=list.length+' shown';$('#procs').innerHTML='<table><tr><th>pid</th><th>cpu</th><th>mem</th><th>nice</th><th>cat</th><th>cmd</th><th></th></tr>'+list.map(p=>`<tr><td>${p.pid}</td><td class="num">${p.cpu.toFixed(1)}</td><td class="num">${p.mb}M</td><td class="num">${p.nice}</td><td><span class="cat-tag">${p.category}</span></td><td title="${esc(p.args)}">${esc(p.cmd)}</td><td>${p.protected?'<span class="tiny">protected</span>':(p.paused?`<button class="good" onclick="act('resume',{pid:${p.pid}})">▶</button>`:`<button onclick="act('pause',{pid:${p.pid}})">⏸</button>`)+`<button onclick="ren(${p.pid},${p.nice})">⤓</button><button class="danger" onclick="kil(${p.pid})">✕</button>`}</td></tr>`).join('')+'</table>';
+ last=Date.now();}
+async function act(p,b){await api(p,b);setTimeout(async()=>render(await api('status')),300);}
+async function resumeAll(){await api('resume',{});setTimeout(async()=>render(await api('status')),300);}
+async function ren(pid,nice){const v=prompt('renice '+pid+' (0-20):',nice>=20?10:20);if(v!=null)await act('renice',{pid,nice:Number(v)});}
+async function kil(pid){if(confirm('Kill '+pid+'?'))await act('kill',{pid,signal:'SIGTERM'});}
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>act('mode',{mode:b.dataset.mode}));
+document.querySelectorAll('[data-gate]').forEach(b=>b.onclick=async()=>{const k=b.dataset.gate;const r=await api('gate',{[k]:!F.gate[k]});if(r.gate)F.gate=r.gate;render(F);});
+$('#q').oninput=()=>F&&render(F);$('#burn').onchange=()=>F&&render(F);
+const es=new EventSource('/events');es.onmessage=(e)=>{try{render(JSON.parse(e.data))}catch(_){}};
+api('status').then(render).catch(()=>{});
+</script>
+</body>
+</html>

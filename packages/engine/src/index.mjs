@@ -26,6 +26,10 @@ export { toNdjson, exportAuditNdjson, exportRunEvidenceNdjson } from './siem.js'
 export { AdminApi } from './admin-api.js';
 export { normaliseMarketplaceIndex, hashMarketplaceIndex, signMarketplaceIndex, verifyMarketplaceIndex } from './marketplace-index.js';
 export { VectorStore, embed, cosine, tokenize, hashString, hashString2, VECTOR_DIM } from './vector.js';
+export {
+  classifyProcess, bucketOf, BUCKETS, NEVER_STOP, isProtectedPid, parseCpuTime, parsePsOutput,
+  parseLoadAvg, parseSwapUsage, cpuFromDelta, buildCensus, selectGroup, planMode, formatBudget,
+} from './device-control.js';
 
 /**
  * One-call engine wiring with sensible defaults.
