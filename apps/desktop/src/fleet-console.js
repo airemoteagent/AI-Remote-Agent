@@ -69,6 +69,39 @@ export function snapshot() {
   };
 }
 
+/**
+ * The frame the dashboard renders, from the snapshot this process already builds.
+ *
+ * The panels and the strip read one shape (fleet:{counts,policy,audit,devices,head,
+ * runtime}, host/cores/mem/load at the top) — the shape the local dashboard composes
+ * around the plane. Posting the raw snapshot instead produced a dashboard that showed
+ * "plane down · agents 0 detected · devices 0/0" while the machine was plainly online:
+ * right data, wrong shape, and the page said it with confidence. This is a mapping —
+ * every field comes from snapshot() or deviceFacts(), nothing is invented. Session and
+ * runtime counters stay absent because they live in the local session stores, and the
+ * console prints "not reported" for them rather than a zero.
+ */
+export function consoleFrame() {
+  const s = snapshot();
+  const d = s.device || deviceFacts();
+  const memTotal = d.memTotalMB || 0;
+  const memFree = d.memFreeMB || 0;
+  return {
+    at: s.at, host: d.id || d.host, model: d.model, cores: d.cores,
+    totalMb: memTotal, busy: s.busy, load: s.load,
+    mem: { available: memFree, used: Math.max(0, memTotal - memFree), total: memTotal },
+    tempSeries: [], budget: s.budget, groups: s.groups, procs: s.procs, agents: s.agents,
+    paused: s.paused, activity: s.activity, gates: s.gate, gate: s.gate,
+    fleet: {
+      at: s.at, planeUp: true, planeStale: false, lastOkAt: s.at, planePort: s.port,
+      error: null,
+      head: s.head, counts: s.counts, policy: s.policy, audit: s.audit,
+      models: s.models, modelsError: s.modelsError, devices: s.devices,
+      catalog: s.catalog, runtime: s.runtime,
+    },
+  };
+}
+
 const json = (res, code, o) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(o)); };
 const body = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => { b += c; if (b.length > 1e6) req.destroy(); }); req.on('end', () => { try { r(b ? JSON.parse(b) : {}); } catch { r({}); } }); });
 const clients = new Set();

@@ -10,7 +10,6 @@ import { statfsSync } from 'node:fs';
 import { CLOUD, DEFAULTS } from './config.js';
 import { log } from './log.js';
 import { envelope, TYPES, isTerminalClose, parseFrame, checkVersion, validateCommandFrame, CLOSE_CODES } from '@remote-agent/protocol';
-import { snapshot as consoleSnapshot } from './fleet-console.js';
 
 // ── Versioned frames ──────────────────────────────────────────────
 // Every outbound frame is built with the shared wire contract
@@ -52,6 +51,7 @@ export class ControlChannel extends EventEmitter {
   #metricsIntervalMs;
   #consoleTimer = null;
   #consoleIntervalMs;
+  #consolePushWarned = false;
   #backoff = DEFAULTS.reconnectMinMs;
   #reconnectTimer = null;
   #closing = false;
@@ -362,10 +362,28 @@ export class ControlChannel extends EventEmitter {
    */
   #startConsolePush() {
     if (this.#consoleTimer) return;
-    const push = () => {
+    const push = async () => {
       let frame;
-      try { frame = consoleSnapshot(); } catch { return; }
-      if (!frame || !frame.device) return;
+      try {
+        // Loaded lazily on purpose. This is an optional surface, and an installed
+        // tree can lag the checkout (measured: the installed agent had no
+        // device-sampler.js, and a top-level import of the frame builder took the
+        // whole daemon down with it — the console then showed a stale frame and
+        // nothing said why).
+        const { consoleFrame } = await import('./fleet-console.js');
+        frame = consoleFrame();
+      } catch (e) {
+        if (!this.#consolePushWarned) {
+          this.#consolePushWarned = true;
+          log.warn?.('console frame unavailable on this install: ' + String(e && e.message || e).slice(0, 120));
+        }
+        return;
+      }
+      // Guard on the SHAPE THIS FUNCTION RETURNS. The first version checked
+      // `frame.device`, which the dashboard frame does not have (it carries host/
+      // model/cores at the top and the roster under fleet) — so the push returned
+      // early on every tick and the hosted console sat on a stale frame.
+      if (!frame || !frame.at || !frame.fleet) return;
       if (Array.isArray(frame.procs)) frame.procs = frame.procs.slice(0, 60);
       fetch(`${CLOUD.base}/api/v1/agent/console`, {
         method: 'POST',

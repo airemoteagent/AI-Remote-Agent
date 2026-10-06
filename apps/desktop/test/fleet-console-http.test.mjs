@@ -49,6 +49,22 @@ describe('control plane over http', () => {
     assert.ok(body.audit.checked >= 0, 'audit posture reports a real check');
   });
 
+  test('the published frame is the shape the dashboard renders', async () => {
+    // The panels read fleet:{counts,policy,audit,devices,head} and host/cores/mem at the
+    // top. Publishing the raw snapshot instead left the hosted console saying "plane
+    // down · 0 devices" on a healthy machine, and a guard that checked for a `device`
+    // key then skipped the push entirely — both failures were silent.
+    const { consoleFrame } = await import('../src/fleet-console.js');
+    const f = consoleFrame();
+    assert.ok(f.at, 'frame carries a timestamp');
+    assert.ok(f.fleet && typeof f.fleet === 'object', 'roster lives under fleet');
+    assert.equal(f.fleet.planeUp, true);
+    assert.ok(f.fleet.counts, 'counts present');
+    assert.equal(f.device, undefined, 'no snapshot-shaped device key to guard on by mistake');
+    assert.ok(f.host && f.cores, 'top-level host facts for the strip');
+    assert.ok(f.mem && typeof f.mem.available === 'number', 'memory block for the strip');
+  });
+
   test('the one endpoint a website may call answers, and only for our origin', async () => {
     // remoteagent.online shows whether this console is running on the visitor's
     // machine. The page must not be handed the control surface to get a status
