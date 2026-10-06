@@ -26,7 +26,7 @@
 // `remote-agent audit verify`.
 
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync, appendFileSync, mkdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, appendFileSync, mkdirSync, statSync, openSync, closeSync, readSync, fstatSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 
@@ -56,6 +56,9 @@ const KNOWN_TOOLS = new Set([
   'sysinfo', 'shell', 'files', 'net', 'apps', 'browser', 'web', 'memory', 'notify', 'vector',
   'jobs', 'delegate', 'goal', 'workflow', 'plugin', 'recall',
   'env', 'session', 'settings', 'discover', 'device',
+  // The agent control plane (roster + run/stop) is a governed tool like any other:
+  // a read-only preset must not be able to start or stop agents.
+  'fleet',
 ]);
 
 const VALID_TIERS = new Set(['allow', 'deny', 'confirm', 'prompt']);
@@ -219,39 +222,78 @@ function firstMatchingRule(rules, name, args) {
 }
 
 // ── Audit log (hash-chained, append-only) ─────────────────────────
-let auditSeq = 0;
-let auditPrev = '';
+// Per-PATH state: one process audits several logs (the device log, a test log),
+// and a process-global seq made the second file start at the first file's number.
+const auditState = new Map(); // path -> { seq, prev }, used only when the tail is unreadable
 
 function sha256(s) {
   return createHash('sha256').update(s).digest('hex');
 }
 
+// A tamper-evident log that two processes can fork is not tamper-evident. Measured
+// on this device: the daemon and a CLI call wrote 100 ms apart, both stamped seq 901
+// with the same prev, and the chain has been unverifiable from 901 on ever since.
+// So the tail is re-read under an exclusive lock before every append.
+//
+// ponytail: a POSIX O_EXCL lock file, not flock(2) — Node has no flock. A crashed
+// holder self-heals via the 5 s stale-steal; if the steal is racy under load that is
+// still strictly better than forking the chain on every concurrent write.
+const sleepMs = (ms) => { try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch { /* no SAB: spin instead */ } };
+
+/** Last complete record on disk — read from the tail, never the whole file. */
+function auditTail(path) {
+  const fd = openSync(path, 'r');
+  try {
+    const size = fstatSync(fd).size;
+    const len = Math.min(size, 65536);
+    if (!len) return null;
+    const buf = Buffer.alloc(len);
+    readSync(fd, buf, 0, len, size - len);
+    const lines = buf.toString('utf8').split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!lines[i].trim()) continue;
+      // the first line of the window is usually a partial record — skip unparseable
+      try { const r = JSON.parse(lines[i]); if (r && r.hash) return r; } catch { /* partial */ }
+    }
+    return null;
+  } finally { closeSync(fd); }
+}
+
+/** Run fn while holding the audit lock; degrade to lockless rather than block forever. */
+function withAuditLock(path, fn) {
+  const lock = `${path}.lock`;
+  let fd = null;
+  for (let i = 0; i < 100; i++) {
+    try { fd = openSync(lock, 'wx', 0o600); break; } catch {
+      try { if (Date.now() - statSync(lock).mtimeMs > 5000) unlinkSync(lock); } catch { /* gone already */ }
+      sleepMs(5);
+    }
+  }
+  try { return fn(); } finally {
+    if (fd !== null) { try { closeSync(fd); } catch { /* */ } try { unlinkSync(lock); } catch { /* */ } }
+  }
+}
+
 /** Append one audit entry. Never throws — auditing must not break tool calls. */
 export function auditWrite(entry, path = DEFAULT_AUDIT_PATH) {
   try {
-    if (auditSeq === 0) {
-      // First write of this process: recover chain position from disk.
-      if (existsSync(path)) {
-        const raw = readFileSync(path, 'utf8').trim().split('\n').filter(Boolean);
-        if (raw.length) {
-          const last = JSON.parse(raw[raw.length - 1]);
-          auditSeq = Number(last.seq) || 0;
-          auditPrev = last.hash || '';
-        }
-      } else {
-        mkdirSync(dirname(path), { recursive: true });
-      }
-    }
-    const line = JSON.stringify({
-      seq: ++auditSeq,
-      ts:  new Date().toISOString(),
-      ...entry,
-      prev: auditPrev,
+    if (!existsSync(path)) mkdirSync(dirname(path), { recursive: true });
+    withAuditLock(path, () => {
+      const st = auditState.get(path) ?? { seq: 0, prev: '' };
+      const tail = existsSync(path) ? auditTail(path) : null;
+      if (tail) { st.seq = Number(tail.seq) || 0; st.prev = tail.hash || ''; }
+      const line = JSON.stringify({
+        seq: ++st.seq,
+        ts:  new Date().toISOString(),
+        ...entry,
+        prev: st.prev,
+      });
+      const hash = sha256(line);
+      const record = { ...JSON.parse(line), hash };
+      appendFileSync(path, JSON.stringify(record) + '\n', { mode: 0o600 });
+      st.prev = hash;
+      auditState.set(path, st);
     });
-    const hash = sha256(line);
-    const record = { ...JSON.parse(line), hash };
-    appendFileSync(path, JSON.stringify(record) + '\n', { mode: 0o600 });
-    auditPrev = hash;
   } catch { /* audit must never crash the agent */ }
 }
 
@@ -317,6 +359,7 @@ export const PRESETS = {
       sysinfo: 'allow', files: 'allow', memory: 'allow', notify: 'allow',
       vector: 'allow',
       shell: 'deny', net: 'deny', web: 'deny', browser: 'deny', apps: 'deny',
+      fleet: 'deny', // observer mode: the roster is readable, control is not
     },
   },
   // Balanced: shell commands and browser require per-command approval;
@@ -328,10 +371,12 @@ export const PRESETS = {
       sysinfo: 'allow', files: 'allow', memory: 'allow', notify: 'allow',
       vector: 'allow',
       shell: 'confirm', net: 'allow', web: 'allow', browser: 'confirm', apps: 'confirm',
+      fleet: 'allow', // starting/stopping agents is allowed, but rate-limited and audited
     },
     rateLimits: {
       shell: { perMinute: 20 },
       net:   { perMinute: 60 },
+      fleet: { perMinute: 30 },
       '*':   { perMinute: 300 },
     },
   },
@@ -343,6 +388,7 @@ export const PRESETS = {
       sysinfo: 'allow', shell: 'allow', files: 'allow', net: 'allow',
       web: 'allow', browser: 'allow', apps: 'allow', memory: 'allow', notify: 'allow',
       vector: 'allow',
+      fleet: 'allow',
     },
   },
 };

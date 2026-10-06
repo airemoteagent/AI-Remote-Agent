@@ -828,6 +828,8 @@ function help() {
     ${CYAN}daemon${RESET}            Install / manage auto-start background service
     ${CYAN}skills${RESET}            List / install / enable / disable skills
     ${CYAN}tools${RESET}             List / inspect / validate tools (SDK)
+    ${CYAN}fleet${RESET}             All agents + all devices: roster, run/stop, console
+    ${CYAN}focus${RESET}             This machine's deep-dive: census, pause/resume, modes
     ${CYAN}update${RESET}            Check for updates / self-update
     ${CYAN}version${RESET}           Print the installed version
     ${CYAN}debug${RESET}             Debug mode — verbose system + connection info
@@ -1321,6 +1323,8 @@ switch (cmd) {
   case 'mcp':                 await mcpCmd(); break;
   case 'doctor':              await doctorCmd(); break;
   case 'workspace':            await workspaceCmd(); break;
+  case 'fleet':               await (await import('../src/fleet-console.js')).runFleetCli(args); break;
+  case 'focus':               await (await import('../src/focus.js')).runFocusCli(args); break;
   case 'setup': case 'quickstart': await setupCmd(); break;
   case 'tools':               await toolsCmd(); break;
   case 'update':              await updateCmd(); break;

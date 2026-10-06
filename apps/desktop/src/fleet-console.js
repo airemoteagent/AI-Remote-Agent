@@ -4,9 +4,14 @@
 // roster so the console covers every paired device and every agent process on
 // them. Dynamic (SSE), full transparency, full control. Binds 127.0.0.1 only.
 //
-//   remote-agent fleet                 console at http://127.0.0.1:3096
+//   remote-agent fleet                 console at http://127.0.0.1:3095
 //   remote-agent fleet --snapshot      JSON census of device + agents
 //   remote-agent fleet --resume-all    un-stop everything focus paused
+//
+//   GET  /agents       the roster of every known agent (running or not)
+//   GET  /overview     head + roster + devices + device census, one JSON
+//   POST /agents/run   {id} — run one (skill enable/install, daemon spawn)
+//   POST /agents/stop  {id} — stop one (skill disable, audited kill)
 //
 // Fleet roster file (optional): ~/.remote-agent/fleet.json
 //   { "devices": [ { "id":"pi-1", "host":"pi-1.lan", "platform":"linux", "cores":4 } ] }
@@ -16,9 +21,10 @@ import os from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as sampler from './device-sampler.js';
+import { catalog, listAgents, startAgent, stopAgent } from './agent-catalog.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.FLEET_PORT || 3096);
+const PORT = Number(process.env.FLEET_PORT || 3095);
 const HOME = process.env.REMOTE_AGENT_HOME || join(os.homedir(), '.remote-agent');
 const FLEET_FILE = join(HOME, 'fleet.json');
 
@@ -41,10 +47,14 @@ export function snapshot() {
   const c = sampler.sample({ minCpu: 0.3 });
   const agents = c.rows.filter((r) => r.bucket === 'agents');
   const self = deviceFacts();
+  const devices = [{ ...self, agents: agents.length, busy: c.busy, paused: sampler.paused.size }, ...readFleet()];
+  // The head reads this roster: every known agent, running or not, plus the
+  // devices it reports on. One catalogue, so the console and the head agree.
+  const cat = catalog({ running: agents, devices });
   return {
     at: Date.now(), console: 'fleet', port: PORT,
-    device: self,
-    devices: [{ ...self, agents: agents.length, busy: c.busy, paused: sampler.paused.size }, ...readFleet()],
+    device: self, devices, head: cat.head, counts: cat.counts, catalog: cat.agents,
+    policy: cat.policy, audit: cat.audit, models: cat.models, modelsError: cat.modelsError,
     busy: c.busy, budget: c.budget, groups: c.groups,
     agents, procs: c.rows.slice(0, 250),
     load: sampler.readLoad(), swap: sampler.readSwap(),
@@ -64,7 +74,10 @@ export function createFleetServer() {
     try {
       if (url === '/' || url === '/index.html') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); return res.end(readFileSync(join(HERE, 'fleet-console.html'))); }
       if (url === '/events') { res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' }); res.write(`data: ${JSON.stringify(last ?? snapshot())}\n\n`); clients.add(res); req.on('close', () => clients.delete(res)); return; }
-      if (url === '/status') return json(res, 200, last ?? snapshot());
+      if (url === '/status' || url === '/overview') return json(res, 200, last ?? snapshot());
+      if (url === '/agents') return json(res, 200, { head: (last ?? snapshot()).head, agents: listAgents({ running: (last ?? snapshot()).agents }) });
+      if (url === '/agents/run' && req.method === 'POST') { const b = await body(req); return json(res, 200, b.id ? startAgent(String(b.id)) : { ok: false, message: 'need id' }); }
+      if (url === '/agents/stop' && req.method === 'POST') { const b = await body(req); return json(res, 200, b.id ? stopAgent(String(b.id)) : { ok: false, message: 'need id' }); }
       if (url === '/gate' && req.method === 'POST') { const b = await body(req); return json(res, 200, { ok: true, gate: sampler.setGate(b) }); }
       if (url === '/mode' && req.method === 'POST') { const b = await body(req); return json(res, 200, sampler.applyMode(String(b.mode || ''), snapshot())); }
       if (url === '/pause' && req.method === 'POST') { const b = await body(req); if (b.pid) return json(res, 200, sampler.pausePids([b.pid])); const { selectGroup } = await import('@remote-agent/engine'); return json(res, 200, sampler.pausePids(selectGroup(b.target || 'agents', snapshot().procs))); }
