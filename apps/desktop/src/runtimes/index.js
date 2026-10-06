@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const COLLECT = join(HERE, 'collect.mjs');
 const CACHE_MS = Number(process.env.RUNTIME_CACHE_MS ?? 15000);
-const TIMEOUT_MS = Number(process.env.RUNTIME_TIMEOUT_MS ?? 20000);
+const TIMEOUT_MS = Number(process.env.RUNTIME_TIMEOUT_MS ?? 60000);
 
 const EMPTY = { at: 0, sessions: [], activity: [], coverage: [], summary: null, errors: [] };
 let last = { ...EMPTY };
@@ -31,7 +31,13 @@ let inflight = null;
 function collectOnce() {
   return new Promise((resolve) => {
     execFile(process.execPath, [COLLECT], { maxBuffer: 32 * 1048576, timeout: TIMEOUT_MS }, (err, stdout) => {
-      if (!stdout) return resolve({ error: `collector failed: ${String(err?.message ?? 'no output').split('\n')[0]}` });
+      // Report WHY, with the child's stderr tail: "Command failed" alone cost a
+      // debugging round on a box where the child was killed by the old 20 s timeout.
+      if (!stdout) {
+        const why = err?.killed ? `collector killed after ${TIMEOUT_MS} ms (box too loaded?)` : String(err?.message ?? 'no output').split('\n')[0];
+        const stderr = String(err?.stderr ?? '').trim().split('\n').slice(-2).join(' | ');
+        return resolve({ error: `collector failed: ${why}${stderr ? ` — ${stderr}` : ''}` });
+      }
       try {
         const parsed = JSON.parse(stdout);
         if (err) parsed.errors = [...(parsed.errors ?? []), `collector: ${String(err.message).split('\n')[0]}`];

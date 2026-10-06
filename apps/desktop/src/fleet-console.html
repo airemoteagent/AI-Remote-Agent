@@ -271,13 +271,17 @@ function renderHead(f){
     .map(([k,v])=>`<span class="chip">${k} ${v}</span>`).join('');
 }
 function renderCoverage(f){
-  const R=f.runtime||{},cov=R.coverage||[];
+  const R=f.runtime||{},cov=R.coverage||[],w=R.watch||{};
+  const watchLine = `<div class="why" style="margin:6px 0 0">detection watchdog: ${(w.stores||[]).length} stores watched ·
+    ${(w.misses||[]).length ? `<b class="bad">${w.misses.length} MISS</b> — ` + w.misses.map(m=>`${esc(m.store)}: disk wrote ${esc(new Date(m.diskAt).toISOString().slice(11,19))}, newest session ${m.newestSessionAt?esc(new Date(m.newestSessionAt).toISOString().slice(11,19)):'none'} (lag ${m.lagMs!=null?Math.round(m.lagMs/1000)+'s':'—'})`).join(' · ')
+      : '<span class="ok">no store moved without being reported</span>'}
+    <br>Every known session store is compared with what the runtimes reported, so a miss shows up here instead of vanishing.</div>`;
   $('#coverage').innerHTML=cov.length?'<table><tr><th>runtime</th><th>store</th><th class="num">sessions</th><th class="num">run</th><th class="num">read</th><th>note</th></tr>'+
     cov.map(c=>`<tr><td>${esc(c.label||c.id)} <span class="tiny">${esc(c.id)}</span></td>
       <td class="${c.verified?'ok':'muted'}">${c.verified?'found':'not installed'}</td>
       <td class="num">${c.sessions}</td><td class="num">${c.running||''}</td>
       <td class="num">${c.ms!=null?c.ms+'ms':''}</td>
-      <td class="tiny" title="${esc(c.error||'')}">${esc(String(c.error||'').slice(0,58))}</td></tr>`).join('')+'</table>'
+      <td class="tiny" title="${esc(c.error||'')}">${esc(String(c.error||'').slice(0,58))}</td></tr>`).join('')+'</table>'+watchLine
     :'<div class="tiny">collecting… (adapters are read in a child process; first result takes a few seconds on a loaded box)</div>';
 }
 function renderCats(f){

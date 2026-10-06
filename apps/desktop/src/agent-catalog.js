@@ -23,7 +23,7 @@ import { CLOUD, loadCreds, credentialStatus } from './config.js';
 import { loadProviderConfig } from './transport/local.js';
 import { Policy, auditVerify } from '@remote-agent/engine';
 import * as sampler from './device-sampler.js';
-import { allSessions, allActivity, coverage, runtimeSummary } from './runtimes/index.js';
+import { collect } from './runtimes/index.js';
 
 const HOME = process.env.REMOTE_AGENT_HOME || join(homedir(), '.remote-agent');
 const PID_FILE = join(HOME, 'daemon.pid');
@@ -349,10 +349,15 @@ let runtimeCache = { at: 0, sessions: [], activity: [], coverage: [], summary: n
 
 export async function refreshRuntimes() {
   try {
-    const [sessions, activity, cov, summary] = await Promise.all([
-      allSessions({ limit: 60 }), allActivity({ limit: 80 }), coverage(), runtimeSummary(),
-    ]);
-    runtimeCache = { at: Date.now(), sessions, activity, coverage: cov, summary, error: null };
+    // One collect() for all of it: the registry caches the payload, and the watchdog
+    // plus the per-runtime fairness counts must reach the UI, not stay in the child.
+    const c = await collect();
+    runtimeCache = {
+      at: c.at ?? Date.now(), sessions: c.sessions ?? [], activity: c.activity ?? [],
+      coverage: c.coverage ?? [], summary: c.summary ?? null,
+      watch: c.watch ?? null, perRuntime: c.perRuntime ?? [], errors: c.errors ?? [],
+      error: c.error ?? null,
+    };
   } catch (e) {
     runtimeCache = { ...runtimeCache, at: Date.now(), error: String(e?.message ?? e) };
   }
